@@ -1,0 +1,24 @@
+{
+  "name": "web-design-kit",
+  "version": "1.0.0",
+  "description": "Disena sitios web profesionales con Claude Code. Aporta: comando /new-website que prepara un proyecto React + Vite + Tailwind + motion (con preview local y deploy en Vercel), el MCP de 21st.dev Magic para generar/refinar componentes UI, y una skill de flujo que integra Project KB (memoria), Golden Rules (estandares) y UI/UX Pro Max (sistema de diseno). Acciones: nueva web, landing page, dashboard, portfolio, e-commerce, disenar, componente UI, preview, deploy, scaffolding.",
+  "author": {
+    "name": "Amilcar Leong"
+  },
+  "license": "MIT",
+  "keywords": [
+    "website",
+    "web-design",
+    "react",
+    "vite",
+    "tailwind",
+    "ui",
+    "ux",
+    "vercel",
+    "scaffold",
+    "magic",
+    "21st",
+    "landing-page",
+    "dashboard"
+  ]
+}

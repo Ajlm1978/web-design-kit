@@ -1,0 +1,17 @@
+{
+  "name": "amilcar-web-kit",
+  "owner": {
+    "name": "Amilcar Leong"
+  },
+  "metadata": {
+    "description": "Kit de diseno de sitios web para Claude Code: scaffolding de proyecto React+Vite+Tailwind, MCP de 21st.dev Magic para componentes, y un flujo que orquesta Project KB, Golden Rules y UI/UX Pro Max.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "web-design-kit",
+      "description": "Disena sitios web con Claude Code: comando /new-website que prepara un proyecto React+Vite+Tailwind listo para preview y deploy en Vercel, MCP de 21st.dev Magic para generar componentes UI, y una skill que orquesta KB + Golden Rules + UI/UX Pro Max.",
+      "source": "./plugins/web-design-kit"
+    }
+  ]
+}

@@ -291,9 +291,18 @@ describe('extract-content.mjs (wp-like)', () => {
     assert.ok(r.warnings.some((w) => /no existe|no se encontr/i.test(w)));
   });
 
+  test('scan-source registra source.root y extract lo usa sin --source-root', async () => {
+    const out4 = tmp();
+    assert.equal(inventory.source.root, wpLike);
+    const r = await extract(inventory, { out: out4, inventoryDir: invDir, downloadImages: true });
+    assert.ok(!r.warnings.some((w) => /--source-root/i.test(w)));
+  });
+
   test('--download-images sin root registrado → aviso y sin copia', async () => {
     const out3 = tmp();
-    const r = await extract(inventory, { out: out3, inventoryDir: invDir, downloadImages: true });
+    // scan-source ya registra source.root; simulamos un inventario antiguo sin él.
+    const noRoot = { ...inventory, source: { ...inventory.source, root: null } };
+    const r = await extract(noRoot, { out: out3, inventoryDir: invDir, downloadImages: true });
     assert.ok(r.warnings.some((w) => /root|raíz/i.test(w)));
   });
 });

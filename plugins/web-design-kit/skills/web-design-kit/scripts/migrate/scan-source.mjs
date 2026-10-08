@@ -83,6 +83,8 @@ function newInventory(source) {
       origin: source.origin,
       stack: source.stack ?? null,
       detectedAt: new Date().toISOString(),
+      // Carpeta raíz escaneada (absoluta): extract-content la usa para copiar imágenes y leer CSS.
+      root: source.root ?? null,
     },
     pages: [],
     skipped: [],
@@ -572,7 +574,8 @@ export async function scan(input, { out, build = false, baseUrl = DEFAULT_BASE_U
   try {
     const stack = detectStack(root);
     // `origin` es el origen URL de las páginas (WXR lo sobreescribe con el del export).
-    const inv = newInventory({ kind, origin, stack });
+    // Para repos clonados en tmp, root deja de existir al terminar: se registra solo para dir.
+    const inv = newInventory({ kind, origin, stack, root: cloned ? null : root });
     if (cloned) inv.warnings.push(`Repo clonado (--depth 1) desde ${cloned.url}`);
     mkdirSync(join(out, 'raw'), { recursive: true });
 

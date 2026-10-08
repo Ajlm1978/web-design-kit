@@ -7,7 +7,7 @@
  *   node audit-site.mjs <inventory.json> --out <dir> [--lighthouse] [--json] [--help]
  *
  * Escribe <out>/audit.md (informe en lenguaje de cliente, secciones del spec §2) y <out>/audit.json:
- *   { summary:{pages, errors, warnings, broken, duplicates, heavyImages, jsOnly},
+ *   { summary:{pages, inventoried, errorPages, errors, warnings, broken, brokenTargets, duplicates, heavyImages, jsOnly},
  *     pages:[{url, status, errors[], warnings[], info[]}], brokenLinks:[{from,to,status}],
  *     unresolved:[{from,to,reason}], duplicates:[{contentHash, urls[]}], heavyImages:[{page,src,bytes?}],
  *     imagesNoDimensions:[{page,src}], lighthouse?:[{url, perf, a11y, bp, seo, lcp, cls} | {url, error}],
@@ -15,6 +15,10 @@
  *
  * - Comprobaciones por página: reutiliza `auditHtml` de ../check-seo.mjs sobre `raw/<file>`
  *   (title/description/h1/canonical/alt/JSON-LD/lang/OG). Si no hay raw, se usan los metadatos del inventario.
+ *   Las URL con status ≥ 400 NO se auditan como páginas (no son páginas del cliente): `summary.pages` y `pages[]`
+ *   solo cuentan las que responden; las 4xx/5xx aparecen como `errorPages` y como destinos en «Enlaces rotos».
+ * - `summary.broken` = aristas origen→destino rotas; `summary.brokenTargets` = destinos distintos (la cifra que
+ *   se da al cliente como «destinos con error»).
  * - Enlaces rotos: destino = Page con status ≥ 400, o skipped con reason 'error'. Con `source.kind` dir|repo
  *   (no hay status real) también cuenta un destino ausente de pages/skipped, salvo rutas dinámicas del CMS
  *   (/tag/, /author/, /category/, /feed/, /page/N/…) que se listan como «no verificables».
@@ -351,7 +355,7 @@ export function detectStack(inv, readRaw) {
   const hits = new Map();
   const libs = new Map();
   let generator = null;
-  const sample = (inv.pages ?? []).slice(0, 50);
+  const sample = (inv.pages ?? []).filter((p) => p.status == null || p.status < 400).slice(0, 50);
   for (const p of sample) {
     const html = readRaw(p);
     if (!html) continue;
@@ -367,7 +371,7 @@ export function detectStack(inv, readRaw) {
   if (!detected && declared && declared !== 'static' && declared !== 'unknown') detected = declared;
   const signals = [];
   if (generator) signals.push(`meta generator: ${generator}`);
-  for (const [id, n] of ranked) signals.push(`${STACK_SIGNATURES.find((s) => s.id === id).label} (${n}/${sample.length} páginas)`);
+  for (const [id, n] of ranked) signals.push(`${STACK_SIGNATURES.find((s) => s.id === id).label} (${n} de ${sample.length} páginas analizadas)`);
   if (declared) signals.push(`inventario: stack ${declared}`);
   const libraries = [...libs.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => LIB_SIGNATURES.find((l) => l.id === id).label);
   const risks = [...(STACK_RISKS[detected] ?? [])];
@@ -583,7 +587,10 @@ export async function audit(inv, { inventoryDir = null, out, lighthouse = false,
   const isHttps = origin ? origin.startsWith('https://') : false;
   let imagesTotal = 0;
   let imagesWithBytes = 0;
+  const errorPages = inv.pages.filter((p) => p.status != null && p.status >= 400);
   for (const p of inv.pages) {
+    // Una URL que responde 4xx/5xx no es una página del sitio: no se audita su SEO (se lista en Enlaces rotos).
+    if (p.status != null && p.status >= 400) continue;
     const html = readRaw(p);
     const r = html != null ? auditHtml(html, { url: p.url, site: origin }) : auditFromMetadata(p);
     pages.push({ url: p.url, status: p.status ?? null, errors: r.errors, warnings: r.warnings, info: r.info });
@@ -601,7 +608,7 @@ export async function audit(inv, { inventoryDir = null, out, lighthouse = false,
   const { broken, unresolved } = findBrokenLinks(inv);
   const duplicates = findDuplicates(inv.pages);
   const jsOnly = (inv.skipped ?? []).filter((s) => s.reason === 'js-only');
-  const errorPages = inv.pages.filter((p) => p.status != null && p.status >= 400);
+  const brokenTargets = new Set(broken.map((b) => b.to)).size;
   const noindexPages = pages.filter((p) => p.info.some((f) => f.code === 'noindex')).map((p) => p.url);
 
   // Seguridad y rastreo
@@ -634,13 +641,19 @@ export async function audit(inv, { inventoryDir = null, out, lighthouse = false,
     generatedAt: new Date().toISOString(),
     source: { kind, origin, stack: inv.source?.stack ?? null },
     summary: {
-      pages: inv.pages.length,
-      okPages: inv.pages.length - errorPages.length,
+      /** Páginas reales (status < 400): las que se auditan y se entregan. */
+      pages: pages.length,
+      /** Entradas del inventario, incluidas las URL que respondieron 4xx/5xx. */
+      inventoried: inv.pages.length,
+      okPages: pages.length,
       errorPages: errorPages.length,
       errors: pages.reduce((n, p) => n + p.errors.length, 0),
       warnings: pages.reduce((n, p) => n + p.warnings.length, 0),
       pagesWithErrors: pages.filter((p) => p.errors.length).length,
+      /** Aristas origen→destino rotas. */
       broken: broken.length,
+      /** Destinos distintos con error: la cifra «destinos con error» del informe. */
+      brokenTargets,
       unresolved: unresolved.length,
       duplicates: duplicates.length,
       heavyImages: heavyImages.length,
@@ -725,14 +738,18 @@ function executiveSummary(r) {
   const missingOg = r.pages.filter((p) => p.errors.some((f) => /^(og:|twitter:)/.test(f.code))).length;
   const noAlt = r.pages.reduce((n, p) => n + p.errors.filter((f) => f.code === 'img-alt').length, 0);
 
-  bullets.push(`Se revisaron **${plural(s.pages, 'página', 'páginas')}**${s.skipped ? ` (y ${s.skipped} URL omitidas: redirecciones, bloqueos o recursos no HTML)` : ''}; **${s.pagesWithErrors}** (${pct(s.pagesWithErrors)} %) tienen al menos un fallo SEO que hoy resta visibilidad en Google.`);
+  const aside = [];
+  if (s.skipped) aside.push(`${plural(s.skipped, 'URL omitida', 'URL omitidas')} por robots.txt, redirección o no ser HTML`);
+  if (s.errorPages) aside.push(`${plural(s.errorPages, 'URL enlazada responde', 'URL enlazadas responden')} con error y ${s.errorPages === 1 ? 'cuenta' : 'cuentan'} como enlaces rotos, no como páginas`);
+  bullets.push(`Se revisaron **${plural(s.pages, 'página', 'páginas')}**${aside.length ? ` (${aside.join('; ')})` : ''}; **${s.pagesWithErrors}** (${pct(s.pagesWithErrors)} %) tienen al menos un fallo SEO que hoy resta visibilidad en Google.`);
   if (missingTitle || missingDesc || missingH1 || missingCanon) {
     bullets.push(`**${missingDesc}** páginas sin descripción, **${missingTitle}** sin título propio, **${missingH1}** sin un único H1 y **${missingCanon}** sin canónica correcta: Google improvisa el texto del resultado y no sabe cuál es la URL oficial de cada página.`);
   } else {
     bullets.push('Título, descripción, H1 y canónica están presentes en todas las páginas: la base técnica se conserva en la migración.');
   }
   if (missingOg) bullets.push(`**${missingOg}** páginas sin etiquetas Open Graph/Twitter completas: al compartirlas en WhatsApp, Facebook o LinkedIn salen sin imagen ni descripción.`);
-  if (s.broken || s.errorPages) bullets.push(`**${plural(s.broken, 'enlace roto', 'enlaces rotos')}** dentro del sitio${s.errorPages ? ` y **${s.errorPages}** URL que responden con error (4xx/5xx)` : ''}: cada uno es un visitante que se va y una señal negativa para el rastreo.`);
+  if (s.broken) bullets.push(`**${plural(s.broken, 'enlace roto', 'enlaces rotos')}** dentro del sitio hacia **${s.brokenTargets}** ${s.brokenTargets === 1 ? 'destino que ya no existe' : 'destinos que ya no existen'}: cada clic en ellos es un visitante que se va y una señal negativa para el rastreo.`);
+  else if (s.errorPages) bullets.push(`**${plural(s.errorPages, 'URL responde', 'URL responden')}** con error (4xx/5xx) aunque ninguna página del sitio enlaza a ellas: conviene redirigirlas.`);
   else bullets.push('Sin enlaces internos rotos: la navegación actual es íntegra.');
   if (s.duplicates) bullets.push(`**${plural(s.duplicates, 'grupo', 'grupos')} de contenido duplicado**: páginas idénticas compiten entre sí y diluyen el posicionamiento.`);
   else bullets.push('Sin contenido duplicado entre páginas.');
@@ -765,7 +782,7 @@ export function renderMarkdown(r) {
   const originLabel = r.source.origin ?? '(sin origen)';
   L.push(`# Auditoría del sitio actual — ${originLabel}`);
   L.push('');
-  L.push(`Generada el ${r.generatedAt.slice(0, 10)} a partir de un inventario de tipo \`${r.source.kind}\` (${plural(s.pages, 'página', 'páginas')}${s.skipped ? `, ${s.skipped} omitidas` : ''}).`);
+  L.push(`Generada el ${r.generatedAt.slice(0, 10)} a partir de un inventario de tipo \`${r.source.kind}\` (${plural(s.pages, 'página', 'páginas')}${s.errorPages ? `, ${plural(s.errorPages, 'URL con error', 'URL con error')} 4xx/5xx` : ''}${s.skipped ? `, ${s.skipped} omitidas` : ''}).`);
   L.push('');
 
   // 1. Resumen ejecutivo
@@ -775,7 +792,7 @@ export function renderMarkdown(r) {
   L.push('');
   for (const b of executiveSummary(r)) L.push(`- ${b}`);
   L.push('');
-  L.push(`Totales: ${plural(s.errors, 'error', 'errores')} · ${plural(s.warnings, 'advertencia', 'advertencias')} · ${plural(s.broken, 'enlace roto', 'enlaces rotos')} · ${plural(s.duplicates, 'grupo duplicado', 'grupos duplicados')} · ${plural(s.heavyImages, 'imagen pesada', 'imágenes pesadas')} · ${plural(s.jsOnly, 'página solo-JS', 'páginas solo-JS')}.`);
+  L.push(`Totales: ${plural(s.errors, 'error', 'errores')} · ${plural(s.warnings, 'advertencia', 'advertencias')} · ${plural(s.broken, 'enlace roto', 'enlaces rotos')} (${plural(s.brokenTargets, 'destino', 'destinos')}) · ${plural(s.duplicates, 'grupo duplicado', 'grupos duplicados')} · ${plural(s.heavyImages, 'imagen pesada', 'imágenes pesadas')} · ${plural(s.jsOnly, 'página solo-JS', 'páginas solo-JS')}.`);
   L.push('');
 
   // 2. Páginas con errores
@@ -814,7 +831,7 @@ export function renderMarkdown(r) {
   if (!r.brokenLinks.length) {
     L.push('No se encontraron enlaces internos rotos.');
   } else {
-    L.push(`${plural(r.brokenLinks.length, 'enlace interno roto', 'enlaces internos rotos')} (${new Set(r.brokenLinks.map((b) => b.to)).size} destinos distintos). En la migración cada destino recibe una redirección 301 o se elimina el enlace.`);
+    L.push(`${plural(r.brokenLinks.length, 'enlace interno roto', 'enlaces internos rotos')} (${s.brokenTargets} destinos distintos). En la migración cada destino recibe una redirección 301 o se elimina el enlace.`);
     L.push('');
     L.push('| Desde | Hacia | Estado |');
     L.push('|---|---|---|');
@@ -958,7 +975,8 @@ export function renderMarkdown(r) {
   L.push('## Qué cambia con la migración');
   L.push('');
   L.push('- **Metadatos completos en el 100 % de las páginas**: título, descripción, canónica, H1 único, Open Graph y JSON-LD se generan desde la plantilla; los fallos de la tabla anterior desaparecen.');
-  if (s.broken || s.errorPages) L.push(`- **Cero enlaces rotos**: ${s.broken + s.errorPages} destinos con error se redirigen (301) o se eliminan; \`check-redirects\` verifica que ninguna URL antigua quede huérfana.`);
+  const errorTargets = Math.max(s.brokenTargets, s.errorPages);
+  if (errorTargets) L.push(`- **Cero enlaces rotos**: los ${errorTargets} destinos con error (${plural(s.broken, 'enlace', 'enlaces')} en el sitio) se redirigen (301) o se eliminan; \`check-redirects\` verifica que ninguna URL antigua quede huérfana.`);
   else L.push('- **Paridad de URLs**: cada URL antigua termina en una página del nuevo sitio o en una redirección 301 verificada.');
   if (s.duplicates) L.push(`- **Sin duplicados**: ${s.duplicates === 1 ? '1 grupo se consolida' : `${s.duplicates} grupos se consolidan`} en una URL por grupo, con redirecciones.`);
   L.push('- **Imágenes optimizadas**: formatos modernos (AVIF/WebP), dimensiones declaradas y carga diferida salvo la imagen principal; sin saltos de maquetación.');
@@ -1050,7 +1068,7 @@ async function main() {
     } else {
       const s = result.summary;
       console.log(
-        `Auditoría: ${s.pages} páginas · ${s.errors} errores · ${s.warnings} advertencias · ${s.broken} enlaces rotos · ${s.duplicates} duplicados · ${s.heavyImages} imágenes pesadas · ${s.jsOnly} solo-JS → ${join(opts.out, 'audit.md')}`,
+        `Auditoría: ${s.pages} páginas${s.errorPages ? ` (+${s.errorPages} URL 4xx/5xx)` : ''} · ${s.errors} errores · ${s.warnings} advertencias · ${s.broken} enlaces rotos (${s.brokenTargets} destinos) · ${s.duplicates} duplicados · ${s.heavyImages} imágenes pesadas · ${s.jsOnly} solo-JS → ${join(opts.out, 'audit.md')}`,
       );
       if (result.lighthouse?.length && result.lighthouse.every((x) => x.error)) console.log(`  lighthouse no ejecutado: ${result.lighthouse[0].error}`);
     }

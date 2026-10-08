@@ -117,7 +117,7 @@ describe('audit(inventory) — fixture wp-like', () => {
     assert.ok(existsSync(jsonPath));
     assert.ok(existsSync(mdPath));
     const json = JSON.parse(readFileSync(jsonPath, 'utf8'));
-    for (const k of ['pages', 'errors', 'warnings', 'broken', 'duplicates', 'heavyImages', 'jsOnly']) {
+    for (const k of ['pages', 'inventoried', 'errorPages', 'errors', 'warnings', 'broken', 'brokenTargets', 'duplicates', 'heavyImages', 'jsOnly']) {
       assert.equal(typeof json.summary[k], 'number', `summary.${k}`);
     }
     assert.equal(json.pages.length, 51);
@@ -181,6 +181,69 @@ describe('audit(inventory) — fixture wp-like', () => {
     assert.equal(result.summary.errors, e);
     assert.equal(result.summary.warnings, w);
     assert.ok(result.summary.errors > 0, 'el fixture tiene errores SEO (og/twitter ausentes)');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// H-05: inventario por URL con páginas 404 → cifras coherentes para el cliente
+// ---------------------------------------------------------------------------
+
+describe('audit(inventory url con 404) — H-05 cifras coherentes', () => {
+  const html = (title, links) =>
+    `<!doctype html><html lang="es"><head><title>${title}</title><meta name="description" content="d"><link rel="canonical" href="https://s.com/${title}/"></head><body><main><h1>${title}</h1>${links.map((l) => `<a href="${l}">x</a>`).join('')}</main></body></html>`;
+  let result;
+  let md;
+
+  before(async () => {
+    const invDir = tmp();
+    mkdirSync(join(invDir, 'raw'), { recursive: true });
+    const page = (path, status, links = []) => {
+      const url = `https://s.com${path}`;
+      let rawFile = null;
+      if (status < 400) {
+        rawFile = `raw/${path.replace(/\W/g, '_')}.html`;
+        writeFileSync(join(invDir, rawFile), html(path.replace(/\//g, '') || 'home', links), 'utf8');
+      }
+      return { url, status, finalUrl: url, title: null, description: null, h1: null, canonical: null, lang: null, links: links.map((l) => `https://s.com${l}`), images: [], jsonld: [], contentHash: null, wordCount: 10, rawFile, rendered: false };
+    };
+    const inv = {
+      version: 1,
+      source: { kind: 'url', origin: 'https://s.com', stack: null },
+      pages: [
+        page('/', 200, ['/a/', '/rota-1/', '/rota-2/']),
+        page('/a/', 200, ['/rota-1/']),
+        page('/b/', 200, ['/rota-1/']),
+        page('/rota-1/', 404),
+        page('/rota-2/', 404),
+      ],
+      skipped: [],
+      warnings: [],
+      stats: { fetched: 5, errors: 0, durationMs: 1 },
+    };
+    const out = tmp();
+    result = await audit(inv, { inventoryDir: invDir, out, fetch: false });
+    md = readFileSync(join(out, 'audit.md'), 'utf8');
+  });
+
+  test('las URL 4xx no se auditan como páginas: pages[] y summary.pages solo cuentan las que responden', () => {
+    assert.equal(result.summary.pages, 3);
+    assert.equal(result.summary.inventoried, 5);
+    assert.equal(result.summary.errorPages, 2);
+    assert.equal(result.pages.length, 3);
+    assert.ok(result.pages.every((p) => p.status < 400));
+    assert.ok(result.summary.pagesWithErrors <= 3);
+  });
+
+  test('broken = aristas (4), brokenTargets = destinos únicos (2) y el informe usa las dos cifras sin inflarlas', () => {
+    assert.equal(result.summary.broken, 4);
+    assert.equal(result.summary.brokenTargets, 2);
+    const exec = md.slice(md.indexOf('## Resumen ejecutivo'), md.indexOf('## Páginas con errores'));
+    assert.match(exec, /\*\*3 páginas\*\*/, 'se revisaron 3 páginas, no 5');
+    assert.match(exec, /\*\*4 enlaces rotos\*\*[^\n]*\*\*2\*\* destinos/, 'enlaces y destinos en la misma frase');
+    assert.ok(!/\b6\b destinos|\b5\b páginas sin/.test(exec), 'sin sumas dobles (4+2) ni páginas 404 contadas como páginas sin descripción');
+    const cambia = md.slice(md.indexOf('## Qué cambia con la migración'));
+    assert.match(cambia, /\*\*Cero enlaces rotos\*\*: los 2 destinos/);
+    assert.match(md, /## Enlaces rotos\n\n4 enlaces internos rotos \(2 destinos distintos\)/);
   });
 });
 

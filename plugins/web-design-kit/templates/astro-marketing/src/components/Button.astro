@@ -1,0 +1,39 @@
+---
+/**
+ * Botón/enlace. Renderiza <a> si hay `href`, si no <button>.
+ */
+import type { HTMLAttributes } from 'astro/types';
+
+type Variant = 'primary' | 'secondary' | 'ghost';
+type Size = 'md' | 'lg';
+
+export interface Props extends HTMLAttributes<'a'> {
+  href?: string;
+  variant?: Variant;
+  size?: Size;
+  type?: 'button' | 'submit' | 'reset';
+}
+
+const { href, variant = 'primary', size = 'md', type = 'button', class: className, ...rest } =
+  Astro.props;
+
+const base =
+  'transition-soft inline-flex items-center justify-center gap-2 rounded-full font-semibold no-underline ' +
+  'focus-visible:outline-3 focus-visible:outline-offset-3 disabled:opacity-50';
+const variants: Record<Variant, string> = {
+  primary: 'bg-accent text-accent-ink hover:brightness-110',
+  secondary: 'bg-ink text-paper hover:bg-accent hover:text-accent-ink',
+  ghost: 'border border-line text-ink hover:border-ink',
+};
+const sizes: Record<Size, string> = {
+  md: 'px-5 py-2.5 text-sm',
+  lg: 'px-7 py-3.5 text-base',
+};
+const classes = [base, variants[variant], sizes[size], className];
+---
+
+{href ? (
+  <a href={href} class:list={classes} {...rest}><slot /></a>
+) : (
+  <button type={type} class:list={classes} {...(rest as Record<string, unknown>)}><slot /></button>
+)}

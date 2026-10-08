@@ -1,0 +1,214 @@
+# CI del marketplace web-design-kit.
+#
+# Tres jobs independientes:
+#   validate   → manifiestos del plugin + frontmatter de todas las SKILL.md (bloqueante)
+#   template   → build, astro check, Playwright+axe y check-seo del template Astro (bloqueante)
+#   lighthouse → Lighthouse CI sobre dist/ (NO bloqueante todavía; ver comentario del job)
+#
+# Node 22 porque Astro 7 exige >= 22.12 (ver skills/web-design-kit/references/versions.md).
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Un push nuevo en la misma rama/PR cancela la ejecución anterior.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  TEMPLATE_DIR: plugins/web-design-kit/templates/astro-marketing
+
+jobs:
+  validate:
+    name: Validar plugin y skills
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          # El root del repo no tiene package.json; se cachea con el lockfile del template.
+          cache: npm
+          cache-dependency-path: ${{ env.TEMPLATE_DIR }}/package-lock.json
+
+      # Validación determinista, sin dependencias: lo que falla aquí bloquea el merge.
+      # 1) Los manifiestos deben ser JSON válido con los campos mínimos.
+      # 2) Cada SKILL.md debe abrir con frontmatter YAML que tenga `name` y `description`
+      #    (el parser es deliberadamente simple: solo claves de primer nivel y bloques `|`).
+      - name: Validar manifiestos y frontmatter de SKILL.md (node, sin deps)
+        run: |
+          node --input-type=module <<'EOF'
+          import { readFileSync, readdirSync, statSync } from 'node:fs';
+          import { join } from 'node:path';
+
+          const errors = [];
+
+          // --- Manifiestos ---
+          const manifests = [
+            ['.claude-plugin/marketplace.json', ['name', 'owner', 'plugins']],
+            ['plugins/web-design-kit/.claude-plugin/plugin.json', ['name', 'version', 'description']],
+          ];
+          for (const [file, required] of manifests) {
+            let json;
+            try {
+              json = JSON.parse(readFileSync(file, 'utf8'));
+            } catch (e) {
+              errors.push(`${file}: JSON inválido (${e.message})`);
+              continue;
+            }
+            for (const key of required) {
+              if (json[key] === undefined) errors.push(`${file}: falta la clave "${key}"`);
+            }
+            console.log(`ok  ${file}`);
+          }
+
+          // --- SKILL.md ---
+          function walk(dir, out = []) {
+            for (const name of readdirSync(dir)) {
+              if (name === 'node_modules' || name === '.git' || name === 'dist') continue;
+              const p = join(dir, name);
+              if (statSync(p).isDirectory()) walk(p, out);
+              else if (name === 'SKILL.md') out.push(p);
+            }
+            return out;
+          }
+          const skills = walk('plugins');
+          if (skills.length === 0) errors.push('no se encontró ninguna SKILL.md bajo plugins/');
+
+          for (const file of skills) {
+            const text = readFileSync(file, 'utf8');
+            const m = text.match(/^---\r?\n([\s\S]*?)\r?\n---\r?\n/);
+            if (!m) { errors.push(`${file}: no empieza con frontmatter ---`); continue; }
+            // Claves de primer nivel: "clave: valor" o "clave: |" seguido de bloque indentado.
+            const keys = new Set();
+            const lines = m[1].split(/\r?\n/);
+            lines.forEach((line, i) => {
+              const k = line.match(/^([A-Za-z][\w-]*):\s*(.*)$/);
+              if (!k) return;
+              const value = k[2].trim();
+              const isBlock = /^[|>][-+]?$/.test(value) && /^\s+\S/.test(lines[i + 1] ?? '');
+              if (value !== '' && (!/^[|>]/.test(value) || isBlock)) keys.add(k[1]);
+            });
+            for (const req of ['name', 'description']) {
+              if (!keys.has(req)) errors.push(`${file}: frontmatter sin "${req}" (o vacío)`);
+            }
+            const nameLine = m[1].match(/^name:\s*(\S+)/m);
+            const dirName = file.split('/').at(-2);
+            if (nameLine && nameLine[1] !== dirName) {
+              errors.push(`${file}: name "${nameLine[1]}" no coincide con la carpeta "${dirName}"`);
+            }
+            console.log(`ok  ${file}`);
+          }
+
+          if (errors.length) {
+            console.error('\nERRORES:\n- ' + errors.join('\n- '));
+            process.exit(1);
+          }
+          console.log(`\n${manifests.length} manifiestos y ${skills.length} skills válidas.`);
+          EOF
+
+      # Validación oficial con la CLI de Claude Code. Localmente `claude plugin validate .`
+      # pasa (v2.1.293, sin login). NO está verificado que `npx -y @anthropic-ai/claude-code`
+      # funcione sin credenciales en un runner limpio, así que este paso NO bloquea: si
+      # falla por entorno queda en el log y la validación con node (arriba) sigue siendo la
+      # fuente de verdad. Si confirmas que pasa en CI, quita `continue-on-error`.
+      - name: Validar con la CLI de Claude Code (informativo)
+        continue-on-error: true
+        run: npx -y @anthropic-ai/claude-code@latest plugin validate .
+
+  template:
+    name: Template astro-marketing (build + check + tests + SEO)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: ${{ env.TEMPLATE_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ env.TEMPLATE_DIR }}/package-lock.json
+
+      # --ignore-scripts: ningún postinstall (sharp/oxc traen binarios ya empaquetados).
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+
+      - name: astro check (0 errores)
+        run: npm run check
+
+      - name: Build
+        run: npm run build
+
+      - name: Instalar Chromium para Playwright
+        run: npx playwright install --with-deps chromium
+
+      # playwright.config.ts levanta `astro preview` él mismo (webServer).
+      - name: Playwright + axe (17 tests)
+        run: npm test
+        env:
+          CI: true
+
+      # Script del kit (lo mantiene otra parte del plugin). Audita dist/ ya construido.
+      - name: check-seo sobre dist/
+        run: node ../../skills/web-design-kit/scripts/check-seo.mjs dist --site https://example.com
+
+      - name: Subir reporte Playwright si falló
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: ${{ env.TEMPLATE_DIR }}/playwright-report
+          retention-days: 7
+
+  lighthouse:
+    name: Lighthouse CI (informativo)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: template
+    # TODO: pasará a bloqueante (quitar continue-on-error) cuando las puntuaciones sean
+    # estables en runners compartidos durante varias ejecuciones seguidas. La varianza de
+    # performance en ubuntu-latest es conocida; hasta entonces el resultado es orientativo.
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: ${{ env.TEMPLATE_DIR }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: ${{ env.TEMPLATE_DIR }}/package-lock.json
+
+      - name: Instalar dependencias
+        run: npm ci --ignore-scripts
+
+      - name: Build
+        run: npm run build
+
+      # Usa lighthouserc.cjs del template (staticDistDir ./dist, categorías >= umbrales).
+      # Versión fijada: coincide con references/versions.md (@lhci/cli 0.15.1 → Lighthouse 13).
+      - name: lhci autorun
+        run: npx -y @lhci/cli@0.15.1 autorun
+
+      - name: Subir informes Lighthouse
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lighthouse-reports
+          path: ${{ env.TEMPLATE_DIR }}/.lighthouseci
+          retention-days: 7

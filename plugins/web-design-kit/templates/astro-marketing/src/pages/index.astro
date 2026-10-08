@@ -1,0 +1,127 @@
+---
+/**
+ * Portada.
+ *
+ * Composición editorial, no "hero centrado + 3 tarjetas":
+ *  - Rejilla asimétrica de 12 columnas: titular display a la izquierda
+ *    (7 col.), imagen que sangra hasta el borde derecho (5 col.) y una
+ *    columna de metadatos pequeña bajo el titular.
+ *  - Idea de movimiento "firma": la regla horizontal bajo el titular se
+ *    dibuja con el scroll (`.marquee-rule`, CSS puro) y la imagen deriva
+ *    lentamente (`.hero-media`). Sin JS. Si el navegador no soporta
+ *    scroll-driven animations o el usuario pide menos movimiento, todo se
+ *    ve estático y completo.
+ *
+ * Todos los textos son PLACEHOLDER de estructura; reemplázalos con el copy
+ * real del cliente.
+ */
+import { Picture } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Section from '../components/Section.astro';
+import Button from '../components/Button.astro';
+import Card from '../components/Card.astro';
+import MotionStats from '../components/islands/MotionStats';
+// El marcador original es `hero-placeholder.svg`; <Picture> necesita un raster
+// para generar AVIF/WebP responsivos (Astro no procesa SVG a otros formatos),
+// así que se usa el JPG derivado. Sustituye ambos por la foto real del cliente.
+import heroImage from '../assets/hero-placeholder.jpg';
+import { SITE } from '../config/site';
+import { organization, website } from '../lib/jsonld';
+
+const jsonLd = [organization(), website()];
+---
+
+<Base
+  title="Inicio"
+  description={SITE.description}
+  jsonLd={jsonLd}
+>
+  <!-- HERO -->
+  <section class="relative overflow-clip" aria-labelledby="hero-title">
+    <div class="site-container grid-editorial items-start pt-10 md:pt-14">
+      <div class="col-span-12 md:col-span-7 md:pb-16 md:pt-10">
+        <p class="eyebrow reveal">PLACEHOLDER · Sector · Ciudad</p>
+        <h1 id="hero-title" class="text-display reveal reveal-delay-1 mt-5 font-medium">
+          Titular corto<br />
+          <em class="font-light italic text-accent">con una idea</em><br />
+          que se recuerda.
+        </h1>
+        <span class="marquee-rule mt-8 block h-px w-full bg-ink" aria-hidden="true"></span>
+
+        <div class="reveal reveal-delay-2 mt-8 grid gap-6 sm:grid-cols-[1fr_auto] sm:items-end">
+          <p class="text-lg text-muted">
+            PLACEHOLDER: una frase que explique qué hace la marca, para quién y por qué
+            importa. Máximo dos líneas.
+          </p>
+          <div class="flex flex-wrap gap-3">
+            <Button href="/contacto/" size="lg">Hablemos</Button>
+            <Button href="#servicios" variant="ghost" size="lg">Ver servicios</Button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Imagen: sangra hasta el borde derecho del viewport en escritorio. -->
+      <div class="hero-media col-span-12 md:col-span-5 md:-mr-[calc((100vw-100%)/2)] md:max-h-[85vh] md:min-h-[60vh]">
+        <Picture
+          src={heroImage}
+          alt=""
+          widths={[480, 800, 1200]}
+          sizes="(min-width: 768px) 42vw, 100vw"
+          formats={['avif', 'webp']}
+          loading="eager"
+          fetchpriority="high"
+          decoding="async"
+          width={1600}
+          height={2000}
+          class="aspect-[4/5] w-full rounded-t-lg object-cover md:aspect-auto md:h-full md:max-h-[85vh] md:rounded-none md:rounded-l-lg"
+        />
+      </div>
+    </div>
+  </section>
+
+  <!-- SERVICIOS -->
+  <Section id="servicios" eyebrow="Qué hacemos" title="Tres cosas, hechas con criterio." tone="surface">
+    <!--
+      El grid padre define 3 filas implícitas por tarjeta (grid-rows-subgrid en Card)
+      para alinear índice / título / cuerpo entre columnas.
+    -->
+    <div class="grid gap-x-10 gap-y-12 sm:grid-cols-2 lg:grid-cols-3">
+      <Card index="01" title="PLACEHOLDER Servicio uno" class="reveal">
+        <p>Descripción breve del servicio: resultado para el cliente, no lista de tareas.</p>
+      </Card>
+      <Card index="02" title="PLACEHOLDER Servicio dos" class="reveal reveal-delay-1">
+        <p>Descripción breve del servicio. Dos líneas como máximo.</p>
+      </Card>
+      <Card index="03" title="PLACEHOLDER Servicio tres" class="reveal reveal-delay-2">
+        <p>Descripción breve del servicio. Enlaza a una página propia si existe.</p>
+      </Card>
+    </div>
+  </Section>
+
+  <!-- CIFRAS (isla React, carga al ser visible) -->
+  <Section id="cifras" eyebrow="En números" title="Resultados que se pueden contar.">
+    <MotionStats
+      client:visible
+      stats={[
+        { value: 0, suffix: '+', label: 'PLACEHOLDER proyectos entregados' },
+        { value: 0, suffix: '%', label: 'PLACEHOLDER clientes que repiten' },
+        { value: 0, label: 'PLACEHOLDER años de experiencia' },
+      ]}
+    />
+    <p class="mt-6 text-xs text-muted">
+      Las cifras anteriores son marcadores a cero: sustitúyelas por datos verificables o elimina la sección.
+    </p>
+  </Section>
+
+  <!-- MANIFIESTO / CTA -->
+  <Section id="cta" tone="ink">
+    <div class="grid-editorial items-center">
+      <h2 class="reveal col-span-12 text-4xl font-medium md:col-span-8">
+        PLACEHOLDER: una frase de cierre que invite a hablar.
+      </h2>
+      <div class="reveal reveal-delay-1 col-span-12 md:col-span-4 md:justify-self-end">
+        <Button href="/contacto/" variant="primary" size="lg">Empezar una conversación</Button>
+      </div>
+    </div>
+  </Section>
+</Base>

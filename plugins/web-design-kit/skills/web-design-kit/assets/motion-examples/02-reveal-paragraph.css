@@ -1,0 +1,56 @@
+/*
+ * Receta 02 — "Reveal por párrafo" (Tier 0, 0 KB JS)
+ * Cada bloque hace fade + 1.25rem de subida cuando entra en el viewport,
+ * guiado por el scroll (no por tiempo). Escalona hermanos con .reveal-delay-N.
+ *
+ * Uso:
+ *   <p class="reveal">…</p>
+ *   <p class="reveal reveal-delay-1">…</p>
+ *
+ * Reduced-motion: el fade está permitido por el contrato del kit, pero este
+ * snippet lo desactiva completo porque va atado al scroll (scroll-driven
+ * puede sentirse como "parallax" para usuarios sensibles). Resultado: visible.
+ */
+.reveal {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+    .reveal-delay-1 { animation-range: entry 8% entry 43%; }
+    .reveal-delay-2 { animation-range: entry 16% entry 51%; }
+    .reveal-delay-3 { animation-range: entry 24% entry 59%; }
+    .reveal-delay-4 { animation-range: entry 32% entry 67%; }
+  }
+}
+
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 1.25rem; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+/* Variante de entrada para <dialog> / [popover] con @starting-style (Tier 0). */
+dialog[open],
+[popover]:popover-open {
+  opacity: 1;
+  translate: 0 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  dialog,
+  [popover] {
+    transition: opacity 240ms ease-out, translate 240ms ease-out, display 240ms allow-discrete, overlay 240ms allow-discrete;
+  }
+  @starting-style {
+    dialog[open],
+    [popover]:popover-open {
+      opacity: 0;
+      translate: 0 0.5rem;
+    }
+  }
+}

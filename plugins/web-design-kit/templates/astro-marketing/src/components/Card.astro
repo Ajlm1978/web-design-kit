@@ -1,0 +1,55 @@
+---
+/**
+ * Tarjeta editorial.
+ *
+ * - `grid-rows-subgrid row-span-3`: dentro de un `grid` padre, las tres filas
+ *   (índice, título, cuerpo) de todas las tarjetas quedan alineadas entre sí
+ *   aunque los textos tengan longitudes distintas.
+ * - Consulta de contenedor: a partir de 24rem de ANCHO DE LA TARJETA el índice
+ *   pasa a una columna lateral, sin mirar el viewport.
+ */
+export interface Props {
+  /** Numeración o etiqueta corta ("01", "A"). */
+  index?: string;
+  title: string;
+  href?: string;
+  class?: string;
+}
+
+const { index, title, href, class: className } = Astro.props;
+---
+
+<article
+  class:list={[
+    'card @container group relative grid grid-rows-subgrid row-span-3 gap-y-3 border-t border-line pt-5',
+    className,
+  ]}
+>
+  <p class="font-display text-sm tabular-nums text-muted" aria-hidden="true">{index ?? ''}</p>
+  <h3 class="text-xl font-medium">
+    {href ? (
+      <a
+        href={href}
+        class="text-ink no-underline after:absolute after:inset-0 after:content-[''] group-hover:text-accent"
+      >
+        {title}
+      </a>
+    ) : (
+      title
+    )}
+  </h3>
+  <div class="text-sm text-muted [&>p]:max-w-none">
+    <slot />
+  </div>
+</article>
+
+<style>
+  @container (min-width: 24rem) {
+    .card {
+      grid-template-columns: 3rem 1fr;
+      column-gap: 1rem;
+    }
+    .card > p[aria-hidden] { grid-row: 1 / span 3; }
+    .card > h3, .card > div { grid-column: 2; }
+  }
+</style>

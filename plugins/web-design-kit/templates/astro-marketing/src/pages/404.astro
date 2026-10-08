@@ -1,0 +1,38 @@
+---
+/**
+ * Página 404 real.
+ *
+ * Astro la emite como `dist/404.html`. Cloudflare Workers Static Assets la
+ * sirve con código 404 gracias a `not_found_handling: "404-page"` (wrangler.jsonc)
+ * y Vercel la detecta automáticamente. Marcada `noindex`.
+ */
+import Base from '../layouts/Base.astro';
+import Button from '../components/Button.astro';
+---
+
+<Base title="Página no encontrada" description="La página que buscas no existe o se ha movido. Vuelve al inicio o usa el menú para seguir navegando." robots="noindex,follow">
+  <section class="site-container section-space grid-editorial min-h-[60dvh] items-center">
+    <div class="col-span-12 md:col-span-8">
+      <p class="eyebrow">Error 404</p>
+      <h1 class="text-display mt-4 font-medium">
+        Esto no está <em class="font-light italic text-accent">aquí.</em>
+      </h1>
+      <p class="mt-6 text-lg text-muted">
+        La dirección puede estar mal escrita o la página ya no existe. Vuelve al inicio o escríbenos.
+      </p>
+      <div class="mt-8 flex flex-wrap gap-3">
+        <Button href="/" size="lg">Ir al inicio</Button>
+        <Button href="/contacto/" variant="ghost" size="lg">Contactar</Button>
+      </div>
+    </div>
+    <!-- Cifra decorativa como SVG: no es texto legible, así no cuenta para el contraste. -->
+    <svg
+      class="col-span-12 h-auto w-full max-w-xs text-line md:col-span-4 md:justify-self-end"
+      viewBox="0 0 300 120"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <text x="0" y="110" font-family="var(--font-display)" font-size="140" font-weight="500" fill="currentColor">404</text>
+    </svg>
+  </section>
+</Base>

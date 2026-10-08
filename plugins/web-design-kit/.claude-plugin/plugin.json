@@ -1,24 +1,10 @@
 {
   "name": "web-design-kit",
-  "version": "1.0.0",
-  "description": "Disena sitios web profesionales con Claude Code. Aporta: comando /new-website que prepara un proyecto React + Vite + Tailwind + motion (con preview local y deploy en Vercel), el MCP de 21st.dev Magic para generar/refinar componentes UI, y una skill de flujo que integra Project KB (memoria), Golden Rules (estandares) y UI/UX Pro Max (sistema de diseno). Acciones: nueva web, landing page, dashboard, portfolio, e-commerce, disenar, componente UI, preview, deploy, scaffolding.",
-  "author": {
-    "name": "Amilcar Leong"
-  },
+  "version": "2.0.0",
+  "description": "Sitios web profesionales e impecables con Claude Code (2026): plantilla Astro 7 + Tailwind 4 verificada (SEO en HTML, JSON-LD, robots con política IA, fuentes locales, View Transitions, tests axe+Playwright, Lighthouse 13), pipeline de tokens DTCG → @theme, doctrina de diseño anti AI-slop, política de motion (CSS first, motion v14, GSAP opt-in), gates de calidad y deploy a Cloudflare Workers/Vercel. Comandos: /new-website, /audit-site. Skills: web-design-kit, seo-audit, design-critique.",
+  "author": { "name": "Amilcar Leong", "url": "https://github.com/Ajlm1978" },
+  "homepage": "https://github.com/Ajlm1978/web-design-kit",
+  "repository": "https://github.com/Ajlm1978/web-design-kit",
   "license": "MIT",
-  "keywords": [
-    "website",
-    "web-design",
-    "react",
-    "vite",
-    "tailwind",
-    "ui",
-    "ux",
-    "vercel",
-    "scaffold",
-    "magic",
-    "21st",
-    "landing-page",
-    "dashboard"
-  ]
+  "keywords": ["website", "web-design", "astro", "tailwind", "seo", "animations", "motion", "accessibility", "lighthouse", "cloudflare", "vercel", "landing-page", "design-tokens", "nextjs"]
 }

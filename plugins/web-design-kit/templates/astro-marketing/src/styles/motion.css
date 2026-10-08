@@ -1,0 +1,81 @@
+/*
+ * Movimiento sin JavaScript.
+ *
+ * Principio: el estado por defecto SIEMPRE es visible. Las animaciones solo se
+ * activan cuando el navegador soporta `animation-timeline: view()` Y el
+ * usuario no ha pedido reducir el movimiento. Si cualquiera de las dos falla,
+ * el contenido se ve tal cual, sin opacidad 0 ni desplazamientos.
+ *
+ * Uso:
+ *   <div class="reveal">…</div>            aparece al entrar en el viewport
+ *   <div class="reveal reveal-delay-2">…   escalona hermanos (1..4)
+ *   <span class="marquee-rule">…           línea que se "dibuja" con el scroll
+ */
+
+/* Estado base visible, sin condiciones. */
+.reveal {
+  opacity: 1;
+  translate: 0 0;
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      /* Empieza cuando el elemento entra por abajo y termina al 35 % del viewport. */
+      animation-range: entry 0% entry 35%;
+    }
+
+    .reveal-delay-1 { animation-range: entry 8% entry 43%; }
+    .reveal-delay-2 { animation-range: entry 16% entry 51%; }
+    .reveal-delay-3 { animation-range: entry 24% entry 59%; }
+    .reveal-delay-4 { animation-range: entry 32% entry 67%; }
+
+    /* Regla horizontal que crece según se hace scroll: la idea de movimiento
+       "firma" del hero (ver index.astro). */
+    .marquee-rule {
+      transform-origin: left center;
+      animation: rule-grow linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+
+    /* Imagen del hero con paralaje sutil atada al scroll. */
+    .hero-media {
+      animation: hero-drift linear both;
+      animation-timeline: scroll(root);
+      animation-range: 0 60vh;
+    }
+  }
+}
+
+@keyframes reveal-up {
+  from {
+    opacity: 0;
+    translate: 0 1.25rem;
+  }
+  to {
+    opacity: 1;
+    translate: 0 0;
+  }
+}
+
+@keyframes rule-grow {
+  from { scale: 0 1; }
+  to { scale: 1 1; }
+}
+
+@keyframes hero-drift {
+  from { translate: 0 0; }
+  to { translate: 0 -6%; }
+}
+
+/* Transiciones de hover/focus respetando reduced-motion. */
+@media (prefers-reduced-motion: no-preference) {
+  .transition-soft {
+    transition-property: color, background-color, border-color, transform, opacity, box-shadow;
+    transition-duration: var(--duration-base, 320ms);
+    transition-timing-function: var(--ease-out-expo, ease-out);
+  }
+}

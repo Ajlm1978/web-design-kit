@@ -1,0 +1,98 @@
+---
+/**
+ * Cabecera.
+ *
+ * Adaptativa sin JS: con `dark` se superpone al hero y fuerza
+ * `color-scheme: dark` en su propio subárbol, así los tokens `light-dark()`
+ * (text-ink, border-line…) se resuelven en su variante clara sobre la foto
+ * oscura, sin duplicar clases. Sin `dark`, es una barra normal sobre `paper`.
+ *
+ * Menú móvil con <details>/<summary>: accesible y sin JavaScript.
+ */
+import { SITE } from '../config/site';
+
+export interface Props {
+  dark?: boolean;
+}
+
+const { dark = false } = Astro.props;
+const current = Astro.url.pathname.replace(/\/$/, '') || '/';
+---
+
+<header
+  class:list={[
+    'z-50 w-full',
+    dark ? 'absolute inset-x-0 top-0 text-ink' : 'relative border-b border-line bg-paper',
+  ]}
+  style={dark ? 'color-scheme: dark;' : undefined}
+>
+  <nav aria-label="Principal" class="site-container flex items-center justify-between gap-6 py-5">
+    <a
+      href="/"
+      class="font-display text-xl font-semibold tracking-tight text-ink no-underline"
+      aria-label={`${SITE.name} — inicio`}
+    >
+      {SITE.shortName}
+    </a>
+
+    <!-- Escritorio -->
+    <ul class="hidden items-center gap-8 md:flex" role="list">
+      {SITE.nav.map((item) => {
+        const active = (item.href.replace(/\/$/, '') || '/') === current;
+        return (
+          <li>
+            <a
+              href={item.href}
+              aria-current={active ? 'page' : undefined}
+              class:list={[
+                'transition-soft text-sm font-medium no-underline hover:text-accent',
+                active ? 'text-ink underline decoration-accent decoration-2' : 'text-muted',
+              ]}
+            >
+              {item.label}
+            </a>
+          </li>
+        );
+      })}
+      <li>
+        <a
+          href="/contacto/"
+          class="transition-soft inline-flex items-center rounded-full bg-ink px-4 py-2 text-sm font-semibold text-paper no-underline hover:bg-accent hover:text-accent-ink"
+        >
+          Hablemos
+        </a>
+      </li>
+    </ul>
+
+    <!-- Móvil: <details> nativo, sin JS -->
+    <details class="group relative md:hidden">
+      <summary
+        class="flex cursor-pointer list-none items-center gap-2 rounded-sm px-2 py-1 text-sm font-medium text-ink [&::-webkit-details-marker]:hidden"
+        aria-label="Abrir menú"
+      >
+        <span aria-hidden="true" class="grid gap-1">
+          <i class="block h-0.5 w-5 bg-current"></i>
+          <i class="block h-0.5 w-5 bg-current"></i>
+        </span>
+        Menú
+      </summary>
+      <ul
+        class="absolute right-0 mt-3 min-w-48 rounded-md border border-line bg-paper p-2 shadow-xl"
+        role="list"
+        style="color-scheme: light dark;"
+      >
+        {SITE.nav.map((item) => (
+          <li>
+            <a
+              href={item.href}
+              class="block rounded-sm px-3 py-2 text-ink no-underline hover:bg-surface"
+              aria-current={(item.href.replace(/\/$/, '') || '/') === current ? 'page' : undefined}
+            >
+              {item.label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  </nav>
+</header>

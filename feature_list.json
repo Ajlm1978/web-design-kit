@@ -1,0 +1,48 @@
+{
+  "_prioridad": "BORRADOR — ordenar con el humano; WIP=1",
+  "_reglas": "Una sola feature in_progress. status pasa a passing solo con evidencia ejecutada de `verification`. init.sh verde es prerequisito de toda feature.",
+  "features": [
+    {
+      "id": "WDK-001",
+      "title": "Kit v2.0.0 publicado en main con gates verdes",
+      "status": "passing",
+      "evidence": "2026-10-07: init.sh completo verde (install, astro check 0 err, build 1 s, check-seo 0 err, tokens --check OK, 26 tests Playwright+axe); claude plugin validate OK",
+      "verification": "./init.sh"
+    },
+    {
+      "id": "WDK-002",
+      "title": "Ejecutar eval 02-restaurante-local de punta a punta con /new-website y /audit-site en sesiones separadas",
+      "status": "pending",
+      "evidence": null,
+      "verification": "evals/run.md: sesión A construye, sesión B audita; todos los gates de quality-gates.md verdes; informe guardado en evals/results/02-<fecha>.md"
+    },
+    {
+      "id": "WDK-003",
+      "title": "Plantilla Next.js 16.4 (templates/next-app) para SaaS/dashboard, verificada con build y check-seo",
+      "status": "pending",
+      "evidence": null,
+      "verification": "cd templates/next-app && npm ci --ignore-scripts && npm run build; rutas públicas estáticas; check-seo sobre next start con 0 errores; stack-next.md actualizado con versiones reales"
+    },
+    {
+      "id": "WDK-004",
+      "title": "Hacer bloqueante el job lighthouse en CI (preset mobile, 3 runs)",
+      "status": "pending",
+      "evidence": null,
+      "verification": "3 runs consecutivos de CI con lighthouse verde; quitar continue-on-error en .github/workflows/ci.yml"
+    },
+    {
+      "id": "WDK-005",
+      "title": "Plantilla OG image generada por build (PNG 1200x630 desde título) en vez de placeholder estático",
+      "status": "pending",
+      "evidence": null,
+      "verification": "dist contiene og/<slug>.png por página; check-seo sin warn og:image; test SEO lo cubre"
+    },
+    {
+      "id": "WDK-006",
+      "title": "Rotar el GitHub PAT expuesto en chat el 2026-10-07 (acción del humano) y documentar flujo seguro (gh auth login / GH_TOKEN)",
+      "status": "pending",
+      "evidence": null,
+      "verification": "Humano confirma token revocado en GitHub Settings → Developer settings; README no menciona tokens en chat"
+    }
+  ]
+}

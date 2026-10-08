@@ -1,0 +1,30 @@
+/*
+ * Receta 01 — "Regla que se dibuja" (Tier 0, 0 KB JS)
+ * Una línea horizontal crece de izquierda a derecha según el elemento entra
+ * en el viewport. Idea de movimiento "firma" para un hero o separador.
+ *
+ * Uso: <hr class="rule-draw" aria-hidden="true" />
+ * Visible por defecto: sin soporte o con reduced-motion, la línea aparece completa.
+ */
+.rule-draw {
+  height: 1px;
+  border: 0;
+  background: var(--color-accent, currentColor);
+  transform-origin: left center;
+  scale: 1 1; /* estado final = estado por defecto */
+}
+
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .rule-draw {
+      animation: rule-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+  }
+}
+
+@keyframes rule-draw {
+  from { scale: 0 1; }
+  to   { scale: 1 1; }
+}

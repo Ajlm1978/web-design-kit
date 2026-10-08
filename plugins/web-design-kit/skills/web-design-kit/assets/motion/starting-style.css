@@ -1,0 +1,126 @@
+/*
+ * starting-style.css — Entrada y salida de <dialog> y [popover] sin JavaScript.
+ *
+ * Técnica: `@starting-style` + `transition-behavior: allow-discrete`.
+ * Ambas son Baseline (oct 2026), igual que la Popover API. No hace falta
+ * `@supports`: un navegador antiguo simplemente abre/cierra sin animación.
+ *
+ * Por qué esto y no una librería: un modal, un menú móvil, un tooltip o un
+ * toast son el 90 % de las "animaciones de UI" de un sitio de marketing y se
+ * resuelven con 0 KB JS. El foco, el Esc y el click fuera ya los gestiona el
+ * navegador (`showModal()`, `popover="auto"`).
+ *
+ * Uso:
+ *   <button popovertarget="menu">Menú</button>
+ *   <nav id="menu" popover class="pop-sheet">…</nav>
+ *
+ *   <dialog id="modal" class="modal">…</dialog>
+ *   <script>document.getElementById('modal').showModal()</script>
+ *
+ * Reduced-motion: se conserva un fade muy corto (120 ms) — el contrato del kit
+ * permite fades breves porque ayudan a entender que algo apareció — y se
+ * elimina cualquier desplazamiento o escala.
+ */
+
+/* ------------------------------------------------------------------ */
+/* <dialog> modal                                                      */
+/* ------------------------------------------------------------------ */
+.modal {
+  /* Estado abierto (final). */
+  opacity: 1;
+  translate: 0 0;
+  scale: 1;
+  /* `display` y `overlay` deben transicionar en modo discreto para que el
+     elemento siga pintado mientras se desvanece al cerrar. */
+  transition:
+    opacity var(--duration-base, 320ms) var(--ease-out-expo, ease-out),
+    translate var(--duration-base, 320ms) var(--ease-out-expo, ease-out),
+    scale var(--duration-base, 320ms) var(--ease-out-expo, ease-out),
+    display var(--duration-base, 320ms) allow-discrete,
+    overlay var(--duration-base, 320ms) allow-discrete;
+}
+
+/* Estado de salida (cuando pierde [open]). */
+.modal:not([open]) {
+  opacity: 0;
+  translate: 0 0.75rem;
+  scale: 0.98;
+}
+
+/* Estado de ENTRADA: desde dónde arranca la transición la primera vez que se pinta. */
+@starting-style {
+  .modal[open] {
+    opacity: 0;
+    translate: 0 0.75rem;
+    scale: 0.98;
+  }
+}
+
+/* Fondo del modal: solo fade. */
+.modal::backdrop {
+  background: oklch(10% 0.01 60 / 0.55);
+  opacity: 1;
+  transition:
+    opacity var(--duration-base, 320ms) ease-out,
+    display var(--duration-base, 320ms) allow-discrete,
+    overlay var(--duration-base, 320ms) allow-discrete;
+}
+.modal:not([open])::backdrop { opacity: 0; }
+@starting-style {
+  .modal[open]::backdrop { opacity: 0; }
+}
+
+/* ------------------------------------------------------------------ */
+/* [popover] — menú móvil tipo "sheet", tooltip, toast                 */
+/* ------------------------------------------------------------------ */
+.pop-sheet {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-fast, 160ms) ease-out,
+    translate var(--duration-base, 320ms) var(--ease-out-expo, ease-out),
+    display var(--duration-base, 320ms) allow-discrete,
+    overlay var(--duration-base, 320ms) allow-discrete;
+}
+
+/* Cerrado: se desliza hacia abajo (sheet) y se desvanece. */
+.pop-sheet:not(:popover-open) {
+  opacity: 0;
+  translate: 0 1rem;
+}
+
+@starting-style {
+  .pop-sheet:popover-open {
+    opacity: 0;
+    translate: 0 1rem;
+  }
+}
+
+/* Toast: variante que entra desde arriba a la derecha. */
+.pop-toast {
+  opacity: 1;
+  translate: 0 0;
+  transition:
+    opacity var(--duration-fast, 160ms) ease-out,
+    translate var(--duration-base, 320ms) var(--ease-out-expo, ease-out),
+    display var(--duration-base, 320ms) allow-discrete,
+    overlay var(--duration-base, 320ms) allow-discrete;
+}
+.pop-toast:not(:popover-open) { opacity: 0; translate: 0 -0.5rem; }
+@starting-style {
+  .pop-toast:popover-open { opacity: 0; translate: 0 -0.5rem; }
+}
+
+/* ------------------------------------------------------------------ */
+/* Reduced-motion: fade corto, sin desplazamiento ni escala.           */
+/* ------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  .modal,
+  .modal::backdrop,
+  .pop-sheet,
+  .pop-toast {
+    transition-duration: 120ms;
+    translate: 0 0 !important;
+    scale: 1 !important;
+  }
+}

@@ -1,0 +1,95 @@
+/*
+ * reveal.css — Reveal al hacer scroll, sin JavaScript (0 KB).
+ *
+ * Técnica: scroll-driven animations (`animation-timeline: view()`).
+ * Soporte (oct 2026): Chrome/Edge 115+, Safari 26+, Firefox detrás de flag.
+ * NO es Baseline → SIEMPRE dentro de `@supports (animation-timeline: view())`
+ * y el estado por defecto (fuera del @supports) es el estado FINAL, visible.
+ *
+ * Contrato reduced-motion: todo lo atado al scroll se desactiva por completo
+ * (puede sentirse como paralaje para usuarios sensibles). Resultado: contenido
+ * visible y estático. Nunca `opacity: 0` sin guarda.
+ *
+ * Uso:
+ *   <p class="reveal">…</p>
+ *   <p class="reveal reveal-delay-2">…</p>        escalona hermanos (1..4)
+ *   <li class="reveal reveal-from-left">…</li>    variante lateral
+ *   <hr class="rule-draw" aria-hidden="true" />   línea que se dibuja
+ *
+ * Coste: 0 KB JS. Solo `opacity`, `translate` y `scale` (compositor-only).
+ * Es el mismo patrón que trae `templates/astro-marketing/src/styles/motion.css`;
+ * si ya usas la plantilla, NO lo importes dos veces.
+ */
+
+/* 1. Estado base = estado final. Sin condiciones. */
+.reveal,
+.reveal-from-left,
+.reveal-from-right {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.rule-draw {
+  height: 1px;
+  border: 0;
+  background: var(--color-line, currentColor);
+  transform-origin: left center;
+  scale: 1 1;
+}
+
+/* 2. Mejora progresiva: solo si el navegador soporta Y el usuario lo permite. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .reveal {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      /* Empieza al entrar por abajo y termina cuando el elemento llega al 35 % del viewport. */
+      animation-range: entry 0% entry 35%;
+    }
+
+    .reveal-from-left {
+      animation: reveal-left linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+
+    .reveal-from-right {
+      animation: reveal-right linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+
+    /* Escalonado: desplaza el rango, no añade delay (el scroll es la línea de tiempo). */
+    .reveal-delay-1 { animation-range: entry 8% entry 43%; }
+    .reveal-delay-2 { animation-range: entry 16% entry 51%; }
+    .reveal-delay-3 { animation-range: entry 24% entry 59%; }
+    .reveal-delay-4 { animation-range: entry 32% entry 67%; }
+
+    .rule-draw {
+      animation: rule-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+  }
+}
+
+/* 3. Keyframes: solo propiedades del compositor. Nada de top/left/width/height. */
+@keyframes reveal-up {
+  from { opacity: 0; translate: 0 1.25rem; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes reveal-left {
+  from { opacity: 0; translate: -1.5rem 0; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes reveal-right {
+  from { opacity: 0; translate: 1.5rem 0; }
+  to   { opacity: 1; translate: 0 0; }
+}
+
+@keyframes rule-draw {
+  from { scale: 0 1; }
+  to   { scale: 1 1; }
+}

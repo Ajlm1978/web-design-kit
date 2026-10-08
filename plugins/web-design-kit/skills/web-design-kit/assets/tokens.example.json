@@ -1,0 +1,133 @@
+{
+  "$schema": "https://www.designtokens.org/schema/2025.10/tokens.schema.json",
+  "$description": "Tokens de ejemplo del web-design-kit en formato W3C DTCG 2025.10. PALETA PLACEHOLDER: papel cálido + tinta + acento naranja quemado, pensada solo para que la plantilla compile. Sustitúyela por completo a partir del brief del cliente (ver references/tokens-dtcg.md y references/design-anti-slop.md). Convenciones: el grupo raíz fija el namespace de Tailwind (color, font, text, spacing, radius, shadow, ease, duration…); `semantic` se mapea a `color` vía kit.namespace; los modos light/dark viven en $extensions['kit.modes'] y el generador los convierte en light-dark(). Última verificación: 2026-10-07.",
+
+  "color": {
+    "$type": "color",
+    "$description": "Paleta cruda en OKLCH (L 0..1, C, H). Nunca se usa directamente en componentes: solo desde `semantic`.",
+    "brand": {
+      "$description": "Escala del acento. 500 = tono base; 600 funciona sobre papel claro con texto blanco (>= 4.5:1); 300 sobre fondo oscuro con texto oscuro.",
+      "50":  { "$value": { "colorSpace": "oklch", "components": [0.97, 0.02, 60] } },
+      "100": { "$value": { "colorSpace": "oklch", "components": [0.93, 0.05, 58] } },
+      "200": { "$value": { "colorSpace": "oklch", "components": [0.86, 0.10, 56] } },
+      "300": { "$value": { "colorSpace": "oklch", "components": [0.78, 0.16, 60] } },
+      "400": { "$value": { "colorSpace": "oklch", "components": [0.68, 0.19, 52] } },
+      "500": { "$value": { "colorSpace": "oklch", "components": [0.60, 0.20, 47] } },
+      "600": { "$value": { "colorSpace": "oklch", "components": [0.53, 0.19, 45] } },
+      "700": { "$value": { "colorSpace": "oklch", "components": [0.45, 0.16, 43] } },
+      "800": { "$value": { "colorSpace": "oklch", "components": [0.36, 0.12, 42] } },
+      "900": { "$value": { "colorSpace": "oklch", "components": [0.26, 0.07, 42] } }
+    },
+    "neutral": {
+      "$description": "Neutros con el mismo matiz cálido (H 60-85) y croma mínimo para que no griseen la paleta.",
+      "0":   { "$value": { "colorSpace": "oklch", "components": [0.99, 0, 0] } },
+      "50":  { "$value": { "colorSpace": "oklch", "components": [0.985, 0.006, 85] } },
+      "75":  { "$value": { "colorSpace": "oklch", "components": [0.94, 0.01, 80] } },
+      "100": { "$value": { "colorSpace": "oklch", "components": [0.95, 0.008, 85] } },
+      "200": { "$value": { "colorSpace": "oklch", "components": [0.88, 0.01, 80] } },
+      "400": { "$value": { "colorSpace": "oklch", "components": [0.72, 0.015, 80] } },
+      "600": { "$value": { "colorSpace": "oklch", "components": [0.45, 0.02, 60] } },
+      "700": { "$value": { "colorSpace": "oklch", "components": [0.30, 0.015, 60] } },
+      "800": { "$value": { "colorSpace": "oklch", "components": [0.21, 0.015, 60] } },
+      "900": { "$value": { "colorSpace": "oklch", "components": [0.20, 0.02, 60] } },
+      "950": { "$value": { "colorSpace": "oklch", "components": [0.16, 0.015, 60] } },
+      "975": { "$value": { "colorSpace": "oklch", "components": [0.18, 0.02, 60] } }
+    }
+  },
+
+  "semantic": {
+    "$type": "color",
+    "$extensions": { "kit.namespace": "color" },
+    "$description": "Roles de color. Cada uno lleva kit.modes {light, dark}; el generador emite --color-x-light, --color-x-dark y --color-x: light-dark(...). Son los únicos colores que ven los componentes (text-ink, bg-paper, border-line…).",
+    "ink":    { "$value": "{color.neutral.900}", "$extensions": { "kit.modes": { "light": "{color.neutral.900}", "dark": "{color.neutral.75}" } }, "$description": "Texto principal." },
+    "paper":  { "$value": "{color.neutral.50}",  "$extensions": { "kit.modes": { "light": "{color.neutral.50}",  "dark": "{color.neutral.950}" } }, "$description": "Fondo de página." },
+    "muted":  { "$value": "{color.neutral.600}", "$extensions": { "kit.modes": { "light": "{color.neutral.600}", "dark": "{color.neutral.400}" } }, "$description": "Texto secundario (>= 4.5:1 sobre paper)." },
+    "line":   { "$value": "{color.neutral.200}", "$extensions": { "kit.modes": { "light": "{color.neutral.200}", "dark": "{color.neutral.700}" } }, "$description": "Bordes y reglas (>= 3:1 con paper)." },
+    "surface":{ "$value": "{color.neutral.100}", "$extensions": { "kit.modes": { "light": "{color.neutral.100}", "dark": "{color.neutral.800}" } }, "$description": "Superficie elevada sutil." },
+    "accent": { "$value": "{color.brand.600}",   "$extensions": { "kit.modes": { "light": "{color.brand.600}",   "dark": "{color.brand.300}" } }, "$description": "Acento. Oscuro en claro, luminoso en oscuro." },
+    "accent-ink": { "$value": "{color.neutral.0}", "$extensions": { "kit.modes": { "light": "{color.neutral.0}", "dark": "{color.neutral.975}" } }, "$description": "Texto SOBRE el acento; cambia con el esquema para conservar AA." }
+  },
+
+  "font": {
+    "$type": "fontFamily",
+    "$description": "Las variables --font-<nombre> las inyecta <Font> (Fonts API de Astro, fontProviders.local) e incluyen ya la fuente de respaldo con métricas ajustadas.",
+    "display": { "$value": ["var(--font-fraunces, Georgia, serif)"] },
+    "sans":    { "$value": ["var(--font-inter, system-ui, sans-serif)"] },
+    "mono":    { "$value": ["ui-monospace", "SFMono-Regular", "Menlo", "Consolas", "monospace"] }
+  },
+
+  "text": {
+    "$type": "dimension",
+    "$description": "Escala fluida: kit.fluid interpola linealmente entre viewport 360px y 1280px; el generador escribe el clamp().",
+    "xs":   { "$value": "0.8rem",   "$extensions": { "kit.fluid": { "min": "0.78rem",  "max": "0.82rem",  "viewport": [360, 1280] } } },
+    "sm":   { "$value": "0.9rem",   "$extensions": { "kit.fluid": { "min": "0.875rem", "max": "0.95rem",  "viewport": [360, 1280] } } },
+    "base": { "$value": "1.0625rem","$extensions": { "kit.fluid": { "min": "1rem",     "max": "1.125rem", "viewport": [360, 1280] } } },
+    "lg":   { "$value": "1.25rem",  "$extensions": { "kit.fluid": { "min": "1.125rem", "max": "1.35rem",  "viewport": [360, 1280] } } },
+    "xl":   { "$value": "1.55rem",  "$extensions": { "kit.fluid": { "min": "1.35rem",  "max": "1.75rem",  "viewport": [360, 1280] } } },
+    "2xl":  { "$value": "2rem",     "$extensions": { "kit.fluid": { "min": "1.7rem",   "max": "2.4rem",   "viewport": [360, 1280] } } },
+    "3xl":  { "$value": "2.8rem",   "$extensions": { "kit.fluid": { "min": "2.2rem",   "max": "3.4rem",   "viewport": [360, 1280] } } },
+    "4xl":  { "$value": "3.9rem",   "$extensions": { "kit.fluid": { "min": "2.8rem",   "max": "5rem",     "viewport": [360, 1280] } } },
+    "display": { "$value": "5rem",  "$extensions": { "kit.fluid": { "min": "3.2rem",   "max": "7.5rem",   "viewport": [360, 1280] } } }
+  },
+
+  "leading": {
+    "$type": "number",
+    "tight":  { "$value": 1.05 },
+    "snug":   { "$value": 1.2 },
+    "normal": { "$value": 1.55 }
+  },
+
+  "tracking": {
+    "$type": "dimension",
+    "tight":   { "$value": "-0.03em" },
+    "display": { "$value": "-0.045em" },
+    "wide":    { "$value": "0.08em" }
+  },
+
+  "spacing": {
+    "$type": "dimension",
+    "DEFAULT": { "$value": { "value": 0.25, "unit": "rem" }, "$description": "Unidad base de Tailwind (p-4 = 1rem)." },
+    "section": { "$value": "6rem",   "$extensions": { "kit.fluid": { "min": "4rem", "max": "8rem",   "viewport": [360, 1280] } } },
+    "gutter":  { "$value": "1.5rem", "$extensions": { "kit.fluid": { "min": "1rem", "max": "2.5rem", "viewport": [360, 1280] } } }
+  },
+
+  "radius": {
+    "$type": "dimension",
+    "$description": "Postura: radios pequeños y jerárquicos (xs controles, sm tarjetas, lg solo contenedores grandes). Nunca el mismo radio en todo.",
+    "xs":   { "$value": { "value": 0.25, "unit": "rem" } },
+    "sm":   { "$value": { "value": 0.5,  "unit": "rem" } },
+    "md":   { "$value": { "value": 0.75, "unit": "rem" } },
+    "lg":   { "$value": { "value": 1.25, "unit": "rem" } },
+    "full": { "$value": { "value": 9999, "unit": "px" } }
+  },
+
+  "container": {
+    "$type": "dimension",
+    "prose": { "$value": "68ch" },
+    "site":  { "$value": "80rem" }
+  },
+
+  "shadow": {
+    "$type": "shadow",
+    "$description": "Sombras tintadas con la tinta (no gris neutro). El color referencia un token con modos y se resuelve a light-dark().",
+    "sm": { "$value": { "offsetX": "0px", "offsetY": "1px", "blur": "2px", "spread": "0px", "color": "oklch(20% 0.02 60 / 0.08)" } },
+    "md": { "$value": [
+      { "offsetX": "0px", "offsetY": "2px",  "blur": "6px",  "spread": "-1px", "color": "oklch(20% 0.02 60 / 0.08)" },
+      { "offsetX": "0px", "offsetY": "12px", "blur": "24px", "spread": "-8px", "color": "oklch(20% 0.02 60 / 0.12)" }
+    ] },
+    "ring": { "$value": { "offsetX": "0px", "offsetY": "0px", "blur": "0px", "spread": "3px", "color": "{semantic.accent}" } }
+  },
+
+  "ease": {
+    "$type": "cubicBezier",
+    "out-expo":    { "$value": [0.16, 1, 0.3, 1] },
+    "in-out-soft": { "$value": [0.65, 0, 0.35, 1] }
+  },
+
+  "duration": {
+    "$type": "duration",
+    "fast": { "$value": { "value": 160, "unit": "ms" } },
+    "base": { "$value": { "value": 320, "unit": "ms" } },
+    "slow": { "$value": { "value": 700, "unit": "ms" } }
+  }
+}

@@ -1,0 +1,89 @@
+---
+/**
+ * <SEO> — metadatos del <head>, tipados.
+ *
+ * - Canónica autorreferencial: `Astro.site` + `Astro.url.pathname` (requiere
+ *   `site` en astro.config). Se puede sobrescribir con `canonical`.
+ * - Open Graph + Twitter Card con imagen absoluta.
+ * - `robots` configurable (por defecto index,follow; en 404 → noindex).
+ * - JSON-LD: pasa uno o varios objetos de `src/lib/jsonld.ts` en `jsonLd`.
+ */
+import { SITE, absoluteUrl } from '../config/site';
+import { serializeJsonLd, type JsonLd } from '../lib/jsonld';
+
+export interface Props {
+  /** Título de la página (sin el nombre del sitio; se añade con ` · `). */
+  title: string;
+  /** Si es `true`, se usa `title` tal cual, sin sufijo. */
+  rawTitle?: boolean;
+  description?: string;
+  /** Ruta relativa a `public/` o URL absoluta. 1200x630 recomendado. */
+  image?: string;
+  imageAlt?: string;
+  /** 'website' (por defecto) o 'article'. */
+  type?: 'website' | 'article';
+  /** URL canónica absoluta; por defecto se calcula del request. */
+  canonical?: string;
+  /** Contenido de <meta name="robots">. */
+  robots?: string;
+  /** Uno o varios bloques JSON-LD. */
+  jsonLd?: JsonLd | JsonLd[];
+  /** Fechas ISO para type="article". */
+  publishedTime?: string;
+  modifiedTime?: string;
+}
+
+const {
+  title,
+  rawTitle = false,
+  description = SITE.description,
+  image = SITE.defaultOgImage,
+  imageAlt = SITE.name,
+  type = 'website',
+  robots = 'index,follow,max-image-preview:large',
+  jsonLd,
+  publishedTime,
+  modifiedTime,
+} = Astro.props;
+
+const fullTitle = rawTitle ? title : `${title} · ${SITE.name}`;
+
+// Canónica: Astro.site puede ser undefined si no se configura `site`;
+// en ese caso caemos a SITE.url para no emitir una canónica rota.
+const base = Astro.site ?? new URL(SITE.url);
+const canonical = Astro.props.canonical ?? new URL(Astro.url.pathname, base).toString();
+// Páginas noindex (404) no emiten canónica: apuntaría a una URL inexistente.
+
+const ogImage = /^https?:\/\//.test(image) ? image : absoluteUrl(image);
+const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
+---
+
+<title>{fullTitle}</title>
+<meta name="description" content={description} />
+{!/noindex/i.test(robots) && <link rel="canonical" href={canonical} />}
+<meta name="robots" content={robots} />
+
+<meta property="og:type" content={type} />
+<meta property="og:site_name" content={SITE.name} />
+<meta property="og:locale" content={SITE.ogLocale} />
+<meta property="og:title" content={fullTitle} />
+<meta property="og:description" content={description} />
+<meta property="og:url" content={canonical} />
+<meta property="og:image" content={ogImage} />
+<meta property="og:image:alt" content={imageAlt} />
+{type === 'article' && publishedTime && (
+  <meta property="article:published_time" content={publishedTime} />
+)}
+{type === 'article' && modifiedTime && (
+  <meta property="article:modified_time" content={modifiedTime} />
+)}
+
+<meta name="twitter:card" content="summary_large_image" />
+<meta name="twitter:title" content={fullTitle} />
+<meta name="twitter:description" content={description} />
+<meta name="twitter:image" content={ogImage} />
+<meta name="twitter:image:alt" content={imageAlt} />
+
+{jsonLdList.map((block) => (
+  <script type="application/ld+json" set:html={serializeJsonLd(block)} />
+))}

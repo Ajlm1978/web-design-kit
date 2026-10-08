@@ -1,0 +1,43 @@
+# robots.txt — PLACEHOLDER: cambia el dominio del Sitemap por el real.
+#
+# Política por defecto: permitir a todos los rastreadores de BÚSQUEDA (incluidos
+# los de búsqueda con IA, que generan tráfico y citas). Decisión consciente:
+# bloquear buscadores IA hoy reduce visibilidad en respuestas generativas sin
+# proteger nada relevante en un sitio de marketing público.
+#
+# Si el cliente quiere excluir el ENTRENAMIENTO de modelos (no la búsqueda),
+# descomenta los bloques marcados con [ENTRENAMIENTO]. Google-Extended y GPTBot
+# controlan entrenamiento; OAI-SearchBot, ChatGPT-User, ClaudeBot y
+# PerplexityBot se usan principalmente para búsqueda/respuestas con cita.
+
+User-agent: *
+Allow: /
+
+# --- Rastreadores de IA: búsqueda / respuestas con cita (PERMITIDOS) ---
+User-agent: OAI-SearchBot
+Allow: /
+
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: ClaudeBot
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
+
+# --- Rastreadores de IA: entrenamiento ---
+# [ENTRENAMIENTO] Descomenta para excluir del entrenamiento de OpenAI:
+# User-agent: GPTBot
+# Disallow: /
+User-agent: GPTBot
+Allow: /
+
+# [ENTRENAMIENTO] Google-Extended NO afecta al posicionamiento en Google Search;
+# solo controla el uso para Gemini/Vertex. Descomenta para excluir:
+# User-agent: Google-Extended
+# Disallow: /
+User-agent: Google-Extended
+Allow: /
+
+Sitemap: https://example.com/sitemap-index.xml

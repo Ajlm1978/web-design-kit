@@ -1,0 +1,46 @@
+---
+/**
+ * Sección con espaciado vertical consistente y cabecera opcional.
+ * Es un contenedor de consultas (`@container`) para que los hijos puedan
+ * adaptarse a su ancho real y no al viewport.
+ */
+export interface Props {
+  id?: string;
+  eyebrow?: string;
+  title?: string;
+  /** Nivel de encabezado del título. */
+  as?: 'h1' | 'h2' | 'h3';
+  /** Fondo alterno. */
+  tone?: 'paper' | 'surface' | 'ink';
+  class?: string;
+}
+
+const { id, eyebrow, title, as: Heading = 'h2', tone = 'paper', class: className } = Astro.props;
+
+const toneClass = {
+  paper: 'bg-paper text-ink',
+  surface: 'bg-surface text-ink',
+  ink: 'bg-ink text-paper',
+}[tone];
+---
+
+<section
+  id={id}
+  class:list={['section-space @container', toneClass, className]}
+  style={tone === 'ink' ? 'color-scheme: dark;' : undefined}
+  aria-labelledby={title && id ? `${id}-title` : undefined}
+>
+  <div class="site-container">
+    {(eyebrow || title) && (
+      <header class="reveal mb-10 max-w-prose md:mb-14">
+        {eyebrow && <p class="eyebrow">{eyebrow}</p>}
+        {title && (
+          <Heading id={id ? `${id}-title` : undefined} class="mt-2 text-3xl font-medium">
+            {title}
+          </Heading>
+        )}
+      </header>
+    )}
+    <slot />
+  </div>
+</section>

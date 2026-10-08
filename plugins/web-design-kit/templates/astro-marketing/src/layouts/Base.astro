@@ -1,0 +1,70 @@
+---
+/**
+ * Layout base. Todas las páginas lo usan.
+ *
+ * - `lang` sale de SITE.locale.
+ * - Skip-link, <header>/<main id="main">/<footer> como landmarks.
+ * - View Transitions entre documentos vía CSS (`@view-transition` en global.css).
+ *   <ClientRouter/> (navegación SPA) está disponible pero DESACTIVADO por
+ *   defecto: activa `clientRouter` solo si necesitas estado persistente entre
+ *   páginas; añade JS al bundle.
+ * - Las fuentes se inyectan con <Font> (Fonts API de Astro, proveedor local).
+ */
+import { Font } from 'astro:assets';
+import { ClientRouter } from 'astro:transitions';
+import SEO from '../components/SEO.astro';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import { SITE } from '../config/site';
+import type { Props as SEOProps } from '../components/SEO.astro';
+import '../styles/global.css';
+
+export interface Props extends SEOProps {
+  /** El header empieza transparente sobre un hero oscuro/foto. */
+  darkHero?: boolean;
+  /** Activa navegación SPA con <ClientRouter/>. Off por defecto (zero JS). */
+  clientRouter?: boolean;
+  /** Clases extra para <body>. */
+  bodyClass?: string;
+}
+
+const { darkHero = false, clientRouter = false, bodyClass = '', ...seo } = Astro.props;
+---
+
+<!doctype html>
+<html lang={SITE.locale}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" media="(prefers-color-scheme: light)" content="#fbfaf7" />
+    <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1d1a17" />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <meta name="generator" content={Astro.generator} />
+
+    <!-- Fuentes autoalojadas: @font-face + preload solo del display normal (el titular, que define el LCP). -->
+    <Font cssVariable="--font-fraunces" preload={[{ style: 'normal' }]} />
+    <Font cssVariable="--font-inter" />
+
+    <SEO {...seo} />
+    {clientRouter && <ClientRouter />}
+    <slot name="head" />
+  </head>
+  <body class:list={['flex min-h-dvh flex-col bg-paper text-ink antialiased', bodyClass]}>
+    <a
+      href="#main"
+      class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-sm focus:bg-accent focus:px-4 focus:py-2 focus:text-accent-ink"
+    >
+      Saltar al contenido
+    </a>
+
+    <Header dark={darkHero} />
+
+    <main id="main" tabindex="-1" class="flex-1 outline-none">
+      <slot />
+    </main>
+
+    <Footer />
+  </body>
+</html>

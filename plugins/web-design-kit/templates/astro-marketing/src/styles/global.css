@@ -1,0 +1,214 @@
+/*
+ * Hoja de estilos global — Tailwind 4 (config CSS-first, sin tailwind.config.js).
+ *
+ * Estructura:
+ *  1. @import tailwindcss
+ *  2. Bloque @theme con los tokens de diseño (OKLCH, escala fluida, espaciado…).
+ *     Está delimitado por `tokens:start` / `tokens:end` para que un generador
+ *     DTCG -> @theme pueda sobrescribirlo íntegro sin tocar el resto.
+ *  3. Capa base: color-scheme light/dark con light-dark(), tipografía, focus.
+ *  4. Utilidades propias (container queries, subgrid, texto editorial).
+ */
+
+@import "tailwindcss";
+@import "./motion.css";
+
+/* tokens:start */
+@theme {
+  /* --- Color (OKLCH). Pares light/dark; se resuelven con light-dark() abajo. --- */
+  --color-ink-light: oklch(20% 0.02 60);
+  --color-ink-dark: oklch(94% 0.01 80);
+  --color-paper-light: oklch(98.5% 0.006 85);
+  --color-paper-dark: oklch(16% 0.015 60);
+  --color-muted-light: oklch(45% 0.02 60);
+  --color-muted-dark: oklch(72% 0.015 80);
+  --color-line-light: oklch(88% 0.01 80);
+  --color-line-dark: oklch(30% 0.015 60);
+  --color-surface-light: oklch(95% 0.008 85);
+  --color-surface-dark: oklch(21% 0.015 60);
+
+  /* Acento: naranja quemado. En claro es oscuro (texto blanco encima, >= 4.5:1);
+     en oscuro es luminoso (texto oscuro encima). `accent-ink` es el color del
+     texto SOBRE el acento y cambia con el esquema para mantener el contraste AA. */
+  --color-accent-light: oklch(53% 0.19 45);
+  --color-accent-dark: oklch(78% 0.16 60);
+  --color-accent-ink-light: oklch(99% 0 0);
+  --color-accent-ink-dark: oklch(18% 0.02 60);
+
+  /* Colores semánticos ya resueltos (light-dark). Úsalos en clases: text-ink, bg-paper… */
+  --color-ink: light-dark(var(--color-ink-light), var(--color-ink-dark));
+  --color-paper: light-dark(var(--color-paper-light), var(--color-paper-dark));
+  --color-muted: light-dark(var(--color-muted-light), var(--color-muted-dark));
+  --color-line: light-dark(var(--color-line-light), var(--color-line-dark));
+  --color-surface: light-dark(var(--color-surface-light), var(--color-surface-dark));
+  --color-accent: light-dark(var(--color-accent-light), var(--color-accent-dark));
+  --color-accent-ink: light-dark(var(--color-accent-ink-light), var(--color-accent-ink-dark));
+
+  /* --- Tipografía. `--font-fraunces` / `--font-inter` las inyecta <Font> (Fonts API de Astro)
+         e incluyen ya la fuente de respaldo con métricas ajustadas. --- */
+  --font-display: var(--font-fraunces, Georgia, serif);
+  --font-sans: var(--font-inter, system-ui, sans-serif);
+
+  /* Escala fluida: min en 360px, max en 1280px. */
+  --text-xs: clamp(0.78rem, 0.76rem + 0.1vw, 0.82rem);
+  --text-sm: clamp(0.875rem, 0.85rem + 0.15vw, 0.95rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1.05rem + 0.4vw, 1.35rem);
+  --text-xl: clamp(1.35rem, 1.2rem + 0.7vw, 1.75rem);
+  --text-2xl: clamp(1.7rem, 1.4rem + 1.3vw, 2.4rem);
+  --text-3xl: clamp(2.2rem, 1.7rem + 2.3vw, 3.4rem);
+  --text-4xl: clamp(2.8rem, 1.9rem + 4vw, 5rem);
+  --text-display: clamp(3.2rem, 1.6rem + 7vw, 7.5rem);
+
+  --leading-tight: 1.05;
+  --leading-snug: 1.2;
+  --leading-normal: 1.55;
+
+  --tracking-tight: -0.03em;
+  --tracking-display: -0.045em;
+  --tracking-wide: 0.08em;
+
+  /* --- Espaciado (base 4px) y radios --- */
+  --spacing: 0.25rem;
+  --spacing-section: clamp(4rem, 3rem + 5vw, 8rem);
+  --spacing-gutter: clamp(1rem, 0.6rem + 2vw, 2.5rem);
+
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1.25rem;
+  --radius-full: 9999px;
+
+  /* --- Contenedor y breakpoints --- */
+  --container-prose: 68ch;
+  --container-site: 80rem;
+
+  /* --- Movimiento --- */
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.65, 0, 0.35, 1);
+  --duration-fast: 160ms;
+  --duration-base: 320ms;
+  --duration-slow: 700ms;
+}
+/* tokens:end */
+
+/* ------------------------------------------------------------------------- */
+/* Capa base                                                                  */
+/* ------------------------------------------------------------------------- */
+@layer base {
+  :root {
+    /* Ambos esquemas disponibles: light-dark() escoge según la preferencia del SO.
+       Para forzar uno, pon `data-theme="light|dark"` en <html>. */
+    color-scheme: light dark;
+    accent-color: var(--color-accent);
+    hanging-punctuation: first last;
+  }
+  :root[data-theme="light"] { color-scheme: light; }
+  :root[data-theme="dark"] { color-scheme: dark; }
+
+  html {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 100%;
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    scroll-padding-block-start: 5rem;
+  }
+
+  body {
+    min-height: 100dvh;
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+    font-feature-settings: "kern", "liga", "calt";
+  }
+
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+    font-variation-settings: "opsz" 144, "SOFT" 30;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
+    text-wrap: balance;
+  }
+
+  p { text-wrap: pretty; max-inline-size: var(--container-prose); }
+
+  a { text-underline-offset: 0.18em; text-decoration-thickness: from-font; }
+
+  :focus-visible {
+    outline: 3px solid var(--color-accent);
+    outline-offset: 3px;
+    border-radius: var(--radius-xs);
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-accent-ink);
+  }
+
+  img, picture, svg, video { display: block; max-inline-size: 100%; block-size: auto; }
+
+  /* Vista previa en navegadores sin light-dark(): tema claro sólido. */
+  @supports not (color: light-dark(#000, #fff)) {
+    html { background-color: var(--color-paper-light); color: var(--color-ink-light); }
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Transición entre documentos (View Transitions MPA).                        */
+/* Astro 5+ elimina <ViewTransitions/>; la forma estándar es esta regla CSS.   */
+/* <ClientRouter/> queda opcional y desactivado por defecto en Base.astro.     */
+/* ------------------------------------------------------------------------- */
+@view-transition {
+  navigation: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+/* ------------------------------------------------------------------------- */
+/* Utilidades propias                                                         */
+/* ------------------------------------------------------------------------- */
+@utility site-container {
+  inline-size: min(100% - 2 * var(--spacing-gutter), var(--container-site));
+  margin-inline: auto;
+}
+
+@utility section-space {
+  padding-block: var(--spacing-section);
+}
+
+@utility text-display {
+  font-size: var(--text-display);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-display);
+}
+
+@utility eyebrow {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Subgrid: los hijos directos heredan las columnas del padre. */
+@utility grid-subgrid {
+  display: grid;
+  grid-template-columns: subgrid;
+}
+
+/* Patrón de rejilla editorial de 12 columnas con gutter fluido. */
+@utility grid-editorial {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  column-gap: var(--spacing-gutter);
+  row-gap: calc(var(--spacing-gutter) * 1.5);
+}

@@ -1,0 +1,99 @@
+/*
+ * view-transitions.css — Transiciones entre páginas sin JavaScript.
+ *
+ * Astro estático = sitio multipágina (MPA). Las View Transitions entre
+ * documentos se activan con UNA regla CSS: `@view-transition { navigation: auto }`.
+ * Soporte (oct 2026): Chrome/Edge y Safari 18.2+; Firefox pendiente.
+ * Un navegador sin soporte ignora la regla y navega como siempre → mejora
+ * progresiva pura, 0 KB JS. Las View Transitions en el mismo documento
+ * (`document.startViewTransition`) SÍ son Baseline, pero aquí no hacen falta.
+ *
+ * `<ClientRouter/>` de Astro (navegación SPA + JS) solo si necesitas estado
+ * persistente entre páginas (p. ej. un reproductor). La plantilla lo deja
+ * desactivado (`clientRouter={false}` en Base.astro).
+ *
+ * Esta hoja es la versión "con nombres" de lo que ya trae
+ * `templates/astro-marketing/src/styles/global.css` (que solo declara la regla
+ * raíz + reduced-motion). Si la importas en la plantilla, elimina el bloque
+ * equivalente de global.css para no duplicarlo.
+ *
+ * Uso en el HTML (sin JS):
+ *   <header style="view-transition-name: site-header">…
+ *   <h1 style="view-transition-name: hero-title">…        (solo UNA por página)
+ *   <img style="view-transition-name: hero-media">…       (solo UNA por página)
+ *
+ * Regla de oro: cada `view-transition-name` debe ser ÚNICO en la página; dos
+ * elementos con el mismo nombre abortan la transición entera (se ve un salto).
+ * En listados usa `view-transition-name: match-element` (Chrome 140+) o nombres
+ * generados por item (`style={`view-transition-name: card-${slug}`}`).
+ */
+
+/* 1. Activar la transición entre documentos del mismo origen. */
+@view-transition {
+  navigation: auto;
+}
+
+/* 2. Reduced-motion: sin crossfade ni movimiento; la navegación es instantánea. */
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation: none !important;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* 3. Crossfade raíz corto. Por defecto son 250 ms; 200 ms se percibe más "ágil". */
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation-duration: 200ms;
+    animation-timing-function: var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+
+  /* 4. Header persistente: NO se anima. Al compartir nombre en ambas páginas,
+        el navegador lo mantiene fijo mientras el resto hace crossfade. */
+  ::view-transition-group(site-header) {
+    animation-duration: 0s;
+  }
+
+  /* 5. Hero: el título y la imagen "viajan" de la portada al detalle (morph de
+        posición/tamaño). Solo transform + opacity: lo gestiona el compositor. */
+  ::view-transition-group(hero-title),
+  ::view-transition-group(hero-media) {
+    animation-duration: 320ms;
+    animation-timing-function: var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1));
+  }
+
+  /* La imagen vieja y la nueva pueden tener distinto aspect-ratio:
+     recortar en vez de estirar. */
+  ::view-transition-old(hero-media),
+  ::view-transition-new(hero-media) {
+    height: 100%;
+    object-fit: cover;
+    overflow: clip;
+  }
+
+  /* 6. Contenido principal: pequeño desplazamiento ascendente al entrar. */
+  ::view-transition-new(main-content) {
+    animation: 280ms var(--ease-out-expo, ease-out) both vt-slide-up;
+  }
+  ::view-transition-old(main-content) {
+    animation: 160ms ease-in both vt-fade-out;
+  }
+}
+
+@keyframes vt-slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes vt-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+
+/* 7. Nombres asignados por clase (alternativa al atributo style inline). */
+.vt-header { view-transition-name: site-header; }
+.vt-hero-title { view-transition-name: hero-title; }
+.vt-hero-media { view-transition-name: hero-media; }
+.vt-main { view-transition-name: main-content; }

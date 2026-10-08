@@ -1,7 +1,27 @@
 # claude-progress — web-design-kit
 
-## Estado verificado (2026-10-08, sesión 3)
-- Kit v2.1.0 en rama `feat/migrate-site`: QA independiente (`evals/results/04-wp-like-2026-10-08.md`) dio NO PASA (H-01 bloqueante); corregidos H-01..H-07, H-10, H-16 (+ parte de H-14) con TDD. Tests migrate 161/161, `./init.sh` verde, `claude plugin validate` OK. Siguiente: repetir pasada A con build Astro real por otra sesión QA, luego pasada B (sitio real) y merge a `main`.
+## Estado verificado (2026-10-08, sesión 4)
+- Kit v2.1.0 en rama `feat/migrate-site`: QA pasada 2 con build Astro real (`evals/results/04-wp-like-2026-10-08-pass2.md`) dio PASA CON HALLAZGOS; corregidos los 4 medios (H2-01..H2-04) + H2-07 + H-11 con TDD (commit `667d0cb`). Tests migrate 172/172, `./init.sh` verde. Siguiente: pasada B (sitio real) por otra sesión QA; cerrar bajos H2-05/H2-06 si sobra; merge a `main`.
+
+## Sesión 4 — 2026-10-08 (correcciones QA pasada 2, WDK-007)
+**Hecho**
+- H2-01: `extract-content` convierte en texto los enlaces hacia destinos rotos del sitio viejo (criterio de `findBrokenLinks`) y avisa `Enlace roto eliminado: <desde> → <hacia>`; `check-seo` gana el error `link-broken` (todo `<a href="/…">` debe existir en `dist/` o ser origen de un redirect con `--redirects <redirects.json|vercel.json>`).
+- H2-02: `planRedirects` honra claves del mapping que están en `inventory.skipped` (redirect + `notes[]`) y avisa (no fatal) de claves que no están en el inventario (`warnings[]`, impresas por la CLI).
+- H2-03 + H-11: `parseSitemap` → `otherHosts[]`; sitemap con 0 URL del origen → `inventory.warnings[]` con el host sugerido; `warnings: []` siempre presente en el inventario del crawl; CLI `Avisos: N`.
+- H2-04: `audit.md` duplicados "se conserva una y las demás redirigen a ella (se decide en `mapping.json`)"; promesa "Cero enlaces rotos" alineada con lo que hace el flujo.
+- H2-07: `migrate-site/SKILL.md` exige `--site` = `SITE.url` = dominio de producción (pedirlo si `brief.domain` es null) y sugiere `--redirects`; docs `quality-gates.md`, `seo.md`, `migration.md`, README.
+- Sección "7. Correcciones aplicadas" en `evals/results/04-wp-like-2026-10-08-pass2.md`.
+
+**Evidencia (resumida)**
+- `node --test "…/migrate/test/*.test.mjs"`: 172 pass / 0 fail (13 en rojo antes de implementar; 161 → 172).
+- `./init.sh`: astro check 0 err · build OK · check-seo 0 err (8 avisos PLACEHOLDER) · 32 Playwright · OK — kit verificado 2026-10-08T22:42Z.
+
+**Pendientes**
+- QA pasada B con sitio real (maker ≠ checker); merge a `main`.
+- Abiertos: H2-05, H2-06, H2-08, H2-09, H-07 (imágenes absolutas), H-08, H-12, H-13, H-14, H-15, H-17, H-18.
+
+## Estado anterior (2026-10-08, sesión 3)
+- Kit v2.1.0 en rama `feat/migrate-site`: QA independiente (`evals/results/04-wp-like-2026-10-08.md`) dio NO PASA (H-01 bloqueante); corregidos H-01..H-07, H-10, H-16 (+ parte de H-14) con TDD. Tests migrate 161/161, `./init.sh` verde, `claude plugin validate` OK.
 
 ## Sesión 3 — 2026-10-08 (correcciones QA WDK-007)
 **Hecho**

@@ -6,13 +6,21 @@
  *   node extract-content.mjs <inventory.json> --out <dir> [--download-images] [--source-root <dir>] [--json] [--help]
  *
  * Escribe:
- *   <out>/content/<slug>.md   frontmatter: sourceUrl, title, description, type (page|post), date, author, tags,
- *                             images[], confidence (high si había <main>/<article>; medium si se eligió por densidad)
+ *   <out>/content/blog/<slug>.md    posts: <slug> = último segmento de la URL (/blog/post-01/ → post-01.md), de modo
+ *                                   que copiado a src/content/blog/ Astro lo sirve en la MISMA URL /blog/post-01/.
+ *   <out>/content/pages/<slug>.md   páginas: <slug> = slugFromPath (/tag/aceite/ → tag-aceite.md).
+ *                             frontmatter: sourceUrl, path (ruta original), title (sin el sufijo " - <sitio>"),
+ *                             description, type (page|post), date, author, tags, images[], confidence (high si
+ *                             había <main>/<article>; medium si se eligió por densidad). El H1 del cuerpo se omite
+ *                             cuando coincide con el título (la plantilla lo pinta desde el frontmatter); los enlaces
+ *                             internos quedan relativos a la raíz (/servicios/) y la meta de WP (fecha/autor/etiquetas)
+ *                             no se repite en el cuerpo.
  *   <out>/assets/             (con --download-images) imágenes ≤ 10 MB con nombre slug; los enlaces del Markdown
  *                             se reescriben a ../assets/<archivo>. Con source.kind 'dir'|'repo' se copian del disco
  *                             (root = inventory.source.root o --source-root); si no hay root, se avisa y no se copia.
  *   <out>/brief.json          brief v1 (assets/brief.schema.json). Cada campo inferido lleva `sources[<campo>]`
- *                             con {from, confidence}; lo no encontrado es null.
+ *                             con {from, confidence}; lo no encontrado es null. `pages[]` lleva path, targetPath
+ *                             (por defecto = path; posts fuera de /blog/ → /blog/<slug>/) y file (relativo a content/).
  *
  * Heurísticas (orden de prioridad, spec §3):
  *   NAP        JSON-LD LocalBusiness/Organization (high) > <address> (medium) > regex tel/email en footer (low)
@@ -34,6 +42,7 @@ import { basename, dirname, extname, join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { slugFromPath } from './lib/url.mjs';
+import { pathOf } from './lib/redirects.mjs';
 import { buildTree, decodeEntities, extractImages, mainContent, nodeText, parseHead } from './lib/html.mjs';
 import { htmlToMarkdown } from './lib/html-to-md.mjs';
 import { emptyBrief, validateBrief, SOCIAL_KEYS } from './lib/brief.mjs';
@@ -44,6 +53,8 @@ export const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
 const FETCH_TIMEOUT_MS = 15_000;
 
 const POST_URL_RE = /\/(?:blog|posts?)\/[^/]+\/?|\/\d{4}\/\d{2}\//i;
+/** Separadores habituales entre el título de la página y el nombre del sitio en <title>. */
+const TITLE_SEPARATOR_RE = /\s+[-–—|·•:»]\s+/;
 const BUSINESS_TYPES_RE = /business|organization|store|restaurant|dentist|clinic|hotel|shop|service|agency|company|corporation|school|church|physician|lawyer|attorney|realestate|automotive|repair/i;
 const NON_BUSINESS_TYPES = new Set(['WebPage', 'WebSite', 'Article', 'BlogPosting', 'NewsArticle', 'BreadcrumbList', 'ImageObject', 'Person', 'FAQPage', 'ItemList', 'SearchAction', 'Product', 'Offer']);
 const DAY_CODES = { monday: 'Mo', tuesday: 'Tu', wednesday: 'We', thursday: 'Th', friday: 'Fr', saturday: 'Sa', sunday: 'Su' };
@@ -225,18 +236,31 @@ function classifyPage(page, tree, html) {
   return 'page';
 }
 
+/** Último segmento de una ruta como slug: `/blog/post-01/` → `post-01`; `/` → `index`. */
+function lastSegmentSlug(path) {
+  const segments = String(path).split('/').filter(Boolean);
+  return segments.length ? slugFromPath(`/${segments[segments.length - 1]}`) : 'index';
+}
+
 /**
- * Página del inventario → {slug, frontmatter, body, images}.
+ * Página del inventario → {slug, file, path, targetPath, data (frontmatter), body, type, tree}.
+ * - post → `blog/<último segmento>.md`, targetPath `/blog/<slug>/` (igual a path si ya estaba bajo /blog/).
+ * - page → `pages/<slugFromPath>.md`, targetPath = path.
+ * `rootRelativeOrigin`: los enlaces del cuerpo a ese origen se escriben como ruta relativa a la raíz.
  */
-function pageToDoc(page, html, { slug }) {
+function pageToDoc(page, html, { rootRelativeOrigin = '' } = {}) {
   const tree = buildTree(html);
   const base = page.finalUrl ?? page.url;
   const main = mainContent(html);
-  const body = htmlToMarkdown(main.html, { baseUrl: base });
+  const body = htmlToMarkdown(main.html, { baseUrl: base, rootRelativeOrigin });
   const type = classifyPage(page, tree, html);
   const images = extractImages(main.html, base).map((i) => ({ src: i.src, alt: i.alt, width: i.width, height: i.height }));
+  const path = pathOf(page.url) ?? '/';
+  const slug = type === 'post' ? lastSegmentSlug(path) : slugFromPath(page.url);
+  const targetPath = type === 'post' ? `/blog/${slug}/` : path;
   const data = {
     sourceUrl: page.url,
+    path,
     title: page.title ?? page.h1 ?? null,
     description: page.description ?? null,
     type,
@@ -246,7 +270,52 @@ function pageToDoc(page, html, { slug }) {
     images,
     confidence: main.confidence,
   };
-  return { slug, data, body, type, tree };
+  return { slug, path, targetPath, data, body, type, tree, h1: page.h1 ?? null };
+}
+
+/** Texto comparable: sin escapes Markdown, minúsculas, espacios colapsados. */
+function comparable(s) {
+  return String(s ?? '')
+    .replace(/\\([\\`*_[\]])/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Quita el sufijo " - <nombre del sitio>" (o | · – — : ») del título de la página. Si tras quitarlo no queda
+ * nada, se conserva el original (p. ej. la home se titula solo con el nombre del sitio).
+ */
+export function stripSiteNameSuffix(title, siteName) {
+  if (!title || !siteName) return title ?? null;
+  const t = String(title).trim();
+  const name = comparable(siteName);
+  const m = new RegExp(`${TITLE_SEPARATOR_RE.source}([^]*)$`).exec(t);
+  if (!m) return t;
+  const idx = t.length - m[0].length;
+  const tail = comparable(m[1]);
+  if (tail !== name) return t;
+  const head = t.slice(0, idx).trim();
+  return head || t;
+}
+
+/**
+ * Si el primer bloque del cuerpo es un H1 igual (sin mayúsculas/espacios) al título o al h1 de la página,
+ * se elimina: el título vive en el frontmatter y la plantilla ya lo pinta.
+ */
+export function stripLeadingH1(body, titles) {
+  const m = /^# (.+?)\n+/.exec(body);
+  if (!m) return body;
+  const h1 = comparable(m[1]);
+  const matches = titles.filter(Boolean).some((t) => comparable(t) === h1);
+  return matches ? body.slice(m[0].length) : body;
+}
+
+/** Aplica las limpiezas que dependen del nombre del sitio: título sin sufijo y H1 duplicado fuera del cuerpo. */
+function finalizeDoc(doc, siteName) {
+  const rawTitle = doc.data.title;
+  doc.data.title = stripSiteNameSuffix(rawTitle, siteName);
+  doc.body = stripLeadingH1(doc.body, [doc.data.title, rawTitle, doc.h1]);
 }
 
 // ---------------------------------------------------------------------------
@@ -563,7 +632,15 @@ async function buildBrief(inventory, entries, { cssLoader, warnings }) {
   src('locale', brief.contact.address?.addressCountry ? brief.sources['contact.address'].from : origin, brief.contact.address?.addressCountry ? 'high' : 'low');
 
   // --- Páginas y migración -------------------------------------------------
-  brief.pages = entries.map((e) => ({ sourceUrl: e.page.url, title: e.doc.data.title, slug: e.doc.slug, type: e.doc.type }));
+  brief.pages = entries.map((e) => ({
+    sourceUrl: e.page.url,
+    title: e.doc.data.title,
+    slug: e.doc.slug,
+    type: e.doc.type,
+    path: e.doc.path,
+    targetPath: e.doc.targetPath,
+    file: e.doc.file,
+  }));
   const posts = entries.filter((e) => e.doc.type === 'post').length;
   brief.migration = { inventoryCount: inventory.pages?.length ?? entries.length, posts, redirectsPlanned: null };
 
@@ -740,11 +817,19 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
   const root = sourceRoot ?? inventory.source?.root ?? null;
   const warnings = [];
   const contentDir = join(out, 'content');
-  mkdirSync(contentDir, { recursive: true });
+  mkdirSync(join(contentDir, 'blog'), { recursive: true });
+  mkdirSync(join(contentDir, 'pages'), { recursive: true });
+  const origin = (() => {
+    try {
+      return new URL(inventory.source?.origin ?? inventory.pages.find((p) => p.url)?.url).origin;
+    } catch {
+      return '';
+    }
+  })();
 
   // Páginas con HTML disponible
   const entries = [];
-  const slugs = new Map();
+  const files = new Map(); // archivo relativo a content/ → url
   for (const page of inventory.pages) {
     if (typeof page.status === 'number' && page.status >= 400) {
       warnings.push(`Omitida ${page.url}: HTTP ${page.status}`);
@@ -760,14 +845,19 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
       continue;
     }
     const html = readFileSync(file, 'utf8');
-    let slug = slugFromPath(page.url);
-    if (slugs.has(slug)) {
+    const doc = pageToDoc(page, html, { rootRelativeOrigin: origin });
+    const dir = doc.type === 'post' ? 'blog' : 'pages';
+    let slug = doc.slug;
+    if (files.has(`${dir}/${slug}.md`)) {
       let i = 2;
-      while (slugs.has(`${slug}-${i}`)) i++;
+      while (files.has(`${dir}/${slug}-${i}.md`)) i++;
       slug = `${slug}-${i}`;
+      doc.slug = slug;
+      if (doc.type === 'post') doc.targetPath = `/blog/${slug}/`;
     }
-    slugs.set(slug, page.url);
-    entries.push({ page, html, doc: pageToDoc(page, html, { slug }) });
+    doc.file = `${dir}/${slug}.md`;
+    files.set(doc.file, page.url);
+    entries.push({ page, html, doc });
   }
   if (entries.length === 0) throw new Error('Ninguna página del inventario tiene HTML en raw/');
 
@@ -779,15 +869,7 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
     for (const e of entries) rewriteImageLinks(e.doc, mapping);
   }
 
-  // Markdown
-  const files = [];
-  for (const e of entries) {
-    const file = join(contentDir, `${e.doc.slug}.md`);
-    writeFileSync(file, `${toFrontmatter(e.doc.data)}\n${e.doc.body}`, 'utf8');
-    files.push(file);
-  }
-
-  // Brief
+  // Brief (necesita el nombre del sitio antes de limpiar títulos y H1)
   const kind = inventory.source?.kind ?? 'url';
   const cssLoader = async (url) => {
     if (kind === 'url') {
@@ -813,18 +895,32 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
   if (kind !== 'url' && !root) warnings.push('CSS no leído: el inventario no registra la carpeta raíz escaneada; pásala con --source-root <dir>');
 
   const brief = await buildBrief(inventory, entries, { cssLoader, warnings });
+
+  // Limpieza dependiente del nombre del sitio (H-02/H-06) y Markdown
+  const written = [];
+  for (const e of entries) {
+    finalizeDoc(e.doc, brief.name);
+    const file = join(contentDir, e.doc.file);
+    writeFileSync(file, `${toFrontmatter(e.doc.data)}\n${e.doc.body}`, 'utf8');
+    written.push(file);
+  }
+  for (const p of brief.pages) {
+    const e = entries.find((x) => x.page.url === p.sourceUrl);
+    if (e) p.title = e.doc.data.title;
+  }
+
   const check = validateBrief(brief);
   if (!check.ok) throw new Error(`brief.json no valida contra el schema v1:\n  ${check.errors.join('\n  ')}`);
   writeFileSync(join(out, 'brief.json'), `${JSON.stringify(brief, null, 2)}\n`, 'utf8');
 
-  return { brief, files, assets, warnings };
+  return { brief, files: written, assets, warnings };
 }
 
 // ---------------------------------------------------------------------------
 // CLI
 // ---------------------------------------------------------------------------
 
-const HELP = `extract-content.mjs — inventario → content/<slug>.md + assets/ + brief.json
+const HELP = `extract-content.mjs — inventario → content/blog/<slug>.md + content/pages/<slug>.md + assets/ + brief.json
 
 Uso:
   node extract-content.mjs <inventory.json> --out <dir> [--download-images] [--source-root <dir>] [--json]
@@ -837,6 +933,8 @@ Opciones:
   --help               Esta ayuda.
 
 raw/ se busca junto al inventory.json indicado. Todo campo inferido del brief lleva sources[campo] = {from, confidence}.
+Posts → content/blog/<último segmento de la URL>.md (copiar a src/content/blog/ SIN renombrar conserva la URL);
+páginas → content/pages/<slug>.md. brief.pages[] lleva path, targetPath y file.
 Windows + Git Bash: pasa rutas sin barra inicial o usa MSYS_NO_PATHCONV=1.
 `;
 

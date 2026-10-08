@@ -77,6 +77,10 @@ export function validateBrief(obj) {
         if (!isNullableStr(p.title)) err(`${path}.title`, 'cadena o null');
         if (!isStr(p.slug)) err(`${path}.slug`, 'obligatorio (cadena)');
         if (!PAGE_TYPES.includes(p.type)) err(`${path}.type`, `debe ser ${PAGE_TYPES.join('|')}`);
+        for (const k of ['path', 'targetPath']) {
+          if (p[k] !== undefined && !(isStr(p[k]) && p[k].startsWith('/'))) err(`${path}.${k}`, 'ruta que empieza por /');
+        }
+        if (p.file !== undefined && !isStr(p.file)) err(`${path}.file`, 'cadena (ruta relativa a content/)');
       });
     }
   }

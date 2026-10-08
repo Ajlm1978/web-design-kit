@@ -22,6 +22,7 @@ import {
   contentHash,
 } from '../lib/html.mjs';
 import { htmlToMarkdown } from '../lib/html-to-md.mjs';
+import { stripLeadingH1, stripSiteNameSuffix } from '../extract-content.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = resolve(here, '../../../../../../..');
@@ -274,5 +275,47 @@ describe('html-to-md.mjs', () => {
     assert.match(md, /^# /m);
     assert.match(md, /!\[[^\]]*\]\(http:\/\/localhost\/wp-content\//);
     assert.ok(!/<[a-z]+[^>]*>/i.test(md), 'no deben quedar etiquetas HTML');
+  });
+
+  test('H-07: dentro de <article> se conserva el header (h1) pero no entry-meta ni el footer de la entrada', () => {
+    const md = htmlToMarkdown(
+      `<article><header class="entry-header"><h1>Título</h1>
+         <div class="entry-meta"><span class="posted-on">Publicado el <time>2024-01-08</time></span> <span class="byline">por <a href="/author/ana/">Ana</a></span></div>
+       </header>
+       <div class="entry-content"><p>Cuerpo</p></div>
+       <footer class="entry-footer"><span class="tags-links">Etiquetas: <a href="/tag/a/">a</a></span></footer></article>`,
+      { baseUrl: 'https://s.com' },
+    );
+    assert.equal(md, '# Título\n\nCuerpo\n');
+  });
+
+  test('H-07: rootRelativeOrigin relativiza los enlaces al origen, no los externos ni las imágenes', () => {
+    const md = htmlToMarkdown(
+      '<p><a href="https://s.com/servicios/?x=1#h">int</a> <a href="https://other.com/p/">ext</a> <img src="/i.jpg" alt="i"></p>',
+      { baseUrl: 'https://s.com/blog/x/', rootRelativeOrigin: 'https://s.com' },
+    );
+    assert.equal(md, '[int](/servicios/?x=1#h) [ext](https://other.com/p/) ![i](https://s.com/i.jpg)\n');
+  });
+});
+
+describe('extract-content.mjs — limpieza de título y H1', () => {
+  test('stripSiteNameSuffix quita " - Sitio", " | Sitio", " · Sitio" y conserva títulos sin sufijo o solo-sitio', () => {
+    assert.equal(stripSiteNameSuffix('Contacto - Taller Demo', 'Taller Demo'), 'Contacto');
+    assert.equal(stripSiteNameSuffix('Contacto | Taller Demo', 'Taller Demo'), 'Contacto');
+    assert.equal(stripSiteNameSuffix('Contacto · taller demo', 'Taller Demo'), 'Contacto');
+    assert.equal(stripSiteNameSuffix('Contacto – Taller Demo', 'Taller Demo'), 'Contacto');
+    assert.equal(stripSiteNameSuffix('Contacto - Otro Sitio', 'Taller Demo'), 'Contacto - Otro Sitio');
+    assert.equal(stripSiteNameSuffix('Taller Demo', 'Taller Demo'), 'Taller Demo');
+    assert.equal(stripSiteNameSuffix('Aceite 5W-30 - Taller Demo', 'Taller Demo'), 'Aceite 5W-30');
+    assert.equal(stripSiteNameSuffix(null, 'Taller Demo'), null);
+    assert.equal(stripSiteNameSuffix('Contacto - Taller Demo', null), 'Contacto - Taller Demo');
+  });
+
+  test('stripLeadingH1 solo elimina el primer H1 cuando coincide con alguno de los títulos', () => {
+    assert.equal(stripLeadingH1('# Contacto\n\nHola\n', ['Contacto']), 'Hola\n');
+    assert.equal(stripLeadingH1('#  contacto \n\nHola\n', ['Contacto - Sitio', 'Contacto']), 'Hola\n');
+    assert.equal(stripLeadingH1('# Otro\n\nHola\n', ['Contacto']), '# Otro\n\nHola\n');
+    assert.equal(stripLeadingH1('Intro\n\n# Contacto\n', ['Contacto']), 'Intro\n\n# Contacto\n');
+    assert.equal(stripLeadingH1('# Qué \\*revisamos\\*\n\nX\n', ['Qué *revisamos*']), 'X\n');
   });
 });

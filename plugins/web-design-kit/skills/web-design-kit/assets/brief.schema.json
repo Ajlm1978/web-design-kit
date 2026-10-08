@@ -26,7 +26,10 @@
           "sourceUrl": { "type": "string" },
           "title": { "type": ["string", "null"] },
           "slug": { "type": "string" },
-          "type": { "type": "string", "enum": ["page", "post"] }
+          "type": { "type": "string", "enum": ["page", "post"] },
+          "path": { "type": "string", "description": "Ruta original (normalizada, con barra final), p. ej. /blog/post-01/" },
+          "targetPath": { "type": "string", "description": "Ruta en el sitio nuevo. Por defecto igual a path; los posts fuera de /blog/ van a /blog/<slug>/" },
+          "file": { "type": "string", "description": "Archivo Markdown relativo a content/: blog/<slug>.md o pages/<slug>.md" }
         }
       }
     },

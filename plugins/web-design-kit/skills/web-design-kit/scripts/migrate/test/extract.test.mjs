@@ -168,44 +168,116 @@ describe('extract-content.mjs (wp-like)', () => {
     brief = JSON.parse(readFileSync(join(out, 'brief.json'), 'utf8'));
   });
 
-  test('content/ tiene 51 archivos .md', () => {
-    const files = readdirSync(join(out, 'content')).filter((f) => f.endsWith('.md'));
-    assert.equal(files.length, 51);
-    assert.ok(files.includes('index.md'));
-    assert.ok(files.includes('contacto.md'));
-    assert.ok(files.includes('blog-post-01.md'));
+  test('H-01: content/blog/<último-segmento>.md para posts y content/pages/<slug>.md para páginas', () => {
+    const blog = readdirSync(join(out, 'content', 'blog')).filter((f) => f.endsWith('.md'));
+    const pages = readdirSync(join(out, 'content', 'pages')).filter((f) => f.endsWith('.md'));
+    assert.equal(blog.length, 30);
+    assert.equal(pages.length, 21);
+    assert.ok(blog.includes('post-01.md'), 'el archivo del post conserva el slug de la URL (/blog/post-01/ → post-01.md)');
+    assert.ok(!blog.includes('blog-post-01.md'));
+    assert.ok(pages.includes('index.md'));
+    assert.ok(pages.includes('contacto.md'));
+    assert.ok(pages.includes('tag-aceite.md'));
+    assert.ok(!existsSync(join(out, 'content', 'contacto.md')), 'ya no se escribe plano en content/');
+    assert.equal(result.files.length, 51);
+  });
+
+  test('H-01: frontmatter lleva path (ruta original) y brief.pages[] lleva path, targetPath y file', () => {
+    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'blog', 'post-01.md'), 'utf8'));
+    assert.equal(data.path, '/blog/post-01/');
+    const post = brief.pages.find((p) => p.sourceUrl === 'http://localhost/blog/post-01/');
+    assert.deepEqual(post, {
+      sourceUrl: 'http://localhost/blog/post-01/',
+      title: 'Cómo saber cuándo cambiar el aceite (1)',
+      slug: 'post-01',
+      type: 'post',
+      path: '/blog/post-01/',
+      targetPath: '/blog/post-01/',
+      file: 'blog/post-01.md',
+    });
+    const contacto = brief.pages.find((p) => p.sourceUrl === 'http://localhost/contacto/');
+    assert.equal(contacto.path, '/contacto/');
+    assert.equal(contacto.targetPath, '/contacto/');
+    assert.equal(contacto.file, 'pages/contacto.md');
+    assert.ok(brief.pages.every((p) => p.targetPath === p.path), 'por defecto la ruta no cambia');
+  });
+
+  test('H-01: un post fuera de /blog/ (permalink por fecha) apunta a /blog/<slug>/ como targetPath', async () => {
+    const page = inventory.pages.find((p) => p.url === 'http://localhost/blog/post-02/');
+    const moved = { ...page, url: 'http://localhost/2024/02/post-02/', finalUrl: 'http://localhost/2024/02/post-02/' };
+    const inv = { ...inventory, pages: inventory.pages.map((p) => (p === page ? moved : p)) };
+    const out5 = tmp();
+    const r = await extract(inv, { out: out5, inventoryDir: invDir, sourceRoot: wpLike });
+    const entry = r.brief.pages.find((p) => p.sourceUrl === 'http://localhost/2024/02/post-02/');
+    assert.equal(entry.type, 'post');
+    assert.equal(entry.path, '/2024/02/post-02/');
+    assert.equal(entry.targetPath, '/blog/post-02/');
+    assert.equal(entry.file, 'blog/post-02.md');
+    assert.ok(existsSync(join(out5, 'content', 'blog', 'post-02.md')));
   });
 
   test('contacto.md: type page, confidence high y cuerpo Markdown', () => {
-    const { data, body } = parseFrontmatter(readFileSync(join(out, 'content', 'contacto.md'), 'utf8'));
+    const { data, body } = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'contacto.md'), 'utf8'));
     assert.equal(data.type, 'page');
     assert.equal(data.sourceUrl, 'http://localhost/contacto/');
-    assert.equal(data.title, 'Contacto - Taller Demo');
     assert.equal(data.confidence, 'high');
-    assert.match(body, /^# Contacto/m);
+    assert.match(body, /^## Horario/m);
     assert.ok(!body.includes('wpcf7'), 'el formulario no debe aparecer');
   });
 
+  test('H-06: el título pierde el sufijo " - <nombre del sitio>"', () => {
+    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'contacto.md'), 'utf8'));
+    assert.equal(data.title, 'Contacto');
+    const home = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'index.md'), 'utf8')).data;
+    assert.equal(home.title, 'Taller mecánico en Miami');
+    assert.ok(brief.pages.every((p) => !/ - Taller Demo$/.test(p.title ?? '')), 'brief.pages[].title también limpio');
+  });
+
+  test('H-02: el H1 igual al título no se repite en el cuerpo', () => {
+    const { body } = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'contacto.md'), 'utf8'));
+    assert.ok(!/^# /m.test(body), `no debe quedar ningún H1 en el cuerpo:\n${body.slice(0, 200)}`);
+    assert.match(body, /^Estamos en el corazón de Miami/m, 'el primer párrafo se conserva');
+    const post = parseFrontmatter(readFileSync(join(out, 'content', 'blog', 'post-01.md'), 'utf8')).body;
+    assert.ok(!/^# /m.test(post));
+  });
+
+  test('H-07: enlaces internos en ruta relativa a la raíz y sin meta de WP (Publicado el…, Etiquetas:)', () => {
+    const { body } = parseFrontmatter(readFileSync(join(out, 'content', 'blog', 'post-01.md'), 'utf8'));
+    // Enlaces (no imágenes: esas quedan absolutas hasta que --download-images las reescribe a ../assets/).
+    assert.ok(!/(^|[^!])\[[^\]]*\]\(http:\/\/localhost\//.test(body), `quedan enlaces absolutos al origen:\n${body}`);
+    assert.match(body, /\[servicios\]\(\/servicios\/\)/);
+    assert.ok(!/^Publicado el /m.test(body));
+    assert.ok(!/^Etiquetas:/m.test(body));
+    assert.ok(!body.includes('/author/'), 'la línea de autor es frontmatter, no cuerpo');
+    // Los enlaces externos se conservan absolutos.
+    const home = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'index.md'), 'utf8')).body;
+    assert.ok(home.includes('](https://example.org/)'));
+    assert.ok(home.includes('](/precios/)'));
+  });
+
   test('posts: type post con date, author y tags', () => {
-    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'blog-post-01.md'), 'utf8'));
+    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'blog', 'post-01.md'), 'utf8'));
     assert.equal(data.type, 'post');
     assert.match(String(data.date), /^2024-01-08/);
     assert.equal(data.author, 'Ana Pérez');
     assert.ok(Array.isArray(data.tags) && data.tags.length >= 1);
-    const posts = readdirSync(join(out, 'content'))
-      .filter((f) => f.startsWith('blog-post-'))
-      .map((f) => parseFrontmatter(readFileSync(join(out, 'content', f), 'utf8')).data);
+    const posts = readdirSync(join(out, 'content', 'blog'))
+      .filter((f) => f.endsWith('.md'))
+      .map((f) => parseFrontmatter(readFileSync(join(out, 'content', 'blog', f), 'utf8')).data);
     assert.equal(posts.length, 30);
     assert.ok(posts.every((p) => p.type === 'post' && p.date));
   });
 
-  test('el índice del blog es page, no post', () => {
-    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'blog.md'), 'utf8'));
+  test('el índice del blog y los archivos /tag/ son page, no post', () => {
+    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'blog.md'), 'utf8'));
     assert.equal(data.type, 'page');
+    const tag = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'tag-aceite.md'), 'utf8')).data;
+    assert.equal(tag.type, 'page');
+    assert.equal(tag.path, '/tag/aceite/');
   });
 
   test('galeria.md (sin <main>) → confidence medium', () => {
-    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'galeria.md'), 'utf8'));
+    const { data } = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'galeria.md'), 'utf8'));
     assert.equal(data.confidence, 'medium');
     assert.ok(data.images.length >= 3);
   });
@@ -342,6 +414,7 @@ describe('CLI extract-content.mjs', () => {
     const brief = JSON.parse(r.stdout);
     assert.equal(brief.name, 'Taller Demo');
     assert.ok(existsSync(join(out, 'brief.json')));
-    assert.ok(existsSync(join(out, 'content', 'contacto.md')));
+    assert.ok(existsSync(join(out, 'content', 'pages', 'contacto.md')));
+    assert.ok(existsSync(join(out, 'content', 'blog', 'post-30.md')));
   });
 });

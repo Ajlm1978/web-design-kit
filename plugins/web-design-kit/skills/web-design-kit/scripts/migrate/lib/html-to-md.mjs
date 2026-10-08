@@ -5,9 +5,13 @@
  *
  * Soporta: h1–h6, p, ul/ol (anidadas), a, img, strong/em (b/i), blockquote, pre/code, tablas simples,
  * br, hr. Elimina nav/header/footer/aside/script/style/form/iframe y bloques con clases
- * `cookie|popup|modal|share|comments|sidebar`. Los enlaces e imágenes se resuelven contra `baseUrl`.
+ * `cookie|popup|modal|share|comments|sidebar`. Dentro de un <article> se conserva su <header> (trae el h1)
+ * pero se eliminan el <footer> y los bloques de meta del CMS (`entry-meta|post-meta|byline|posted-on|
+ * tags-links|cat-links|entry-footer`): fecha, autor y etiquetas ya van en el frontmatter.
+ * Los enlaces e imágenes se resuelven contra `baseUrl`; con `rootRelativeOrigin`, los que apuntan a ese
+ * origen se escriben como ruta relativa a la raíz (`/servicios/`) para que no dependan del dominio viejo.
  *
- * htmlToMarkdown(html, {baseUrl}) → string (termina en '\n'; bloques separados por línea en blanco).
+ * htmlToMarkdown(html, {baseUrl, rootRelativeOrigin}) → string (termina en '\n'; bloques separados por línea en blanco).
  */
 
 import { buildTree, decodeEntities } from './html.mjs';
@@ -17,6 +21,8 @@ const REMOVE_ELEMENTS = new Set([
   'button', 'input', 'select', 'textarea', 'svg', 'canvas', 'object', 'embed', 'video', 'audio',
 ]);
 const REMOVE_CLASS_RE = /(^|[\s_-])(cookie|popup|modal|share|comments?|sidebar)([\s_-]|$)/i;
+/** Meta de entrada que generan WordPress y temas afines (fecha, autor, etiquetas): ya está en el frontmatter. */
+const ENTRY_META_CLASS_RE = /(^|\s)(entry-meta|post-meta|byline|posted-on|tags-links|cat-links|entry-footer|entry-utility|post-tags|post-categories)(\s|$)/i;
 
 const BLOCKS = new Set([
   'p', 'div', 'section', 'article', 'main', 'blockquote', 'pre', 'ul', 'ol', 'li', 'table', 'hr',
@@ -33,22 +39,28 @@ function hasAncestor(node, name) {
 }
 
 function shouldRemove(node) {
-  if (node.name === 'header' || node.name === 'footer') {
-    // El header/footer del sitio se elimina; el de un <article> (p. ej. `entry-header` con el h1) se conserva.
+  if (node.name === 'header') {
+    // El header del sitio se elimina; el de un <article> (p. ej. `entry-header` con el h1) se conserva.
     return !hasAncestor(node, 'article');
   }
+  // El footer del sitio y el de la entrada (`entry-footer`: etiquetas, categorías, compartir) se eliminan.
+  if (node.name === 'footer') return true;
   if (REMOVE_ELEMENTS.has(node.name)) return true;
   const cls = `${node.attrs.class ?? ''} ${node.attrs.id ?? ''}`;
-  return cls.trim() !== '' && REMOVE_CLASS_RE.test(cls);
+  if (cls.trim() === '') return false;
+  if (REMOVE_CLASS_RE.test(cls)) return true;
+  return hasAncestor(node, 'article') && ENTRY_META_CLASS_RE.test(node.attrs.class ?? '');
 }
 
-function resolveUrl(href, baseUrl) {
+function resolveUrl(href, baseUrl, rootRelativeOrigin = '') {
   if (typeof href !== 'string') return '';
   const h = href.trim();
   if (!h) return '';
   if (!baseUrl) return h;
   try {
-    return new URL(h, baseUrl).toString();
+    const url = new URL(h, baseUrl);
+    if (rootRelativeOrigin && url.origin === rootRelativeOrigin) return `${url.pathname}${url.search}${url.hash}`;
+    return url.toString();
   } catch {
     return h;
   }
@@ -76,9 +88,9 @@ function indent(text, pad) {
     .join('\n');
 }
 
-export function htmlToMarkdown(html, { baseUrl = '' } = {}) {
+export function htmlToMarkdown(html, { baseUrl = '', rootRelativeOrigin = '' } = {}) {
   const tree = buildTree(html);
-  const md = renderChildrenAsBlocks(tree, { baseUrl });
+  const md = renderChildrenAsBlocks(tree, { baseUrl, rootRelativeOrigin });
   const out = md.replace(/\n{3,}/g, '\n\n').trim();
   return out ? `${out}\n` : '';
 }
@@ -126,7 +138,9 @@ function renderInline(node, ctx) {
         break;
       }
       case 'a': {
-        const href = resolveUrl(child.attrs.href, ctx.baseUrl);
+        // Solo los enlaces se relativizan; las imágenes quedan absolutas para que extract-content pueda
+        // casarlas con `images[].src` y reescribirlas a ../assets/ tras descargarlas.
+        const href = resolveUrl(child.attrs.href, ctx.baseUrl, ctx.rootRelativeOrigin);
         const inner = renderInline(child, ctx).trim();
         if (!href) parts.push(inner);
         else if (!inner) parts.push(`<${href}>`);

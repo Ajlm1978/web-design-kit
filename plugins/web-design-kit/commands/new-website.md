@@ -31,11 +31,18 @@ Si hay `--from`, el brief ya existe: **no repitas preguntas**. Procedimiento:
      Si `fontsource` es `null` (fuente desconocida), propone la familia más cercana de `references/typography.md` y márcalo como decisión reversible.
    - **Qué páginas antiguas se descartan** (muestra `brief.pages` tipo `page`, con título y `sourceUrl`). Lo descartado
      va a `migration/mapping.json` como `"/old/": null` para que `plan-redirects` genere el 301 al padre.
-4. Contenido:
-   - `type: post` → copia `migration/content/<slug>.md` a `src/content/blog/<slug>.md`. El schema de la colección
-     (`src/content.config.ts`) acepta el frontmatter del extractor (`null` permitido). Si `date` es `null`, pide la
-     fecha o usa la del sitemap/WXR; nunca la de hoy sin avisar. Primer `images[].local` → `image` (ruta en `public/` o `src/assets/migrated/`).
-   - `type: page` → `src/content/pages/<slug>.md` (Markdown tal cual) + `src/pages/<slug>.astro` que lo renderiza:
+4. Contenido (el extractor ya separa `content/blog/` y `content/pages/`; `brief.pages[]` trae `path`, `targetPath` y `file`):
+   - `type: post` → **copia `migration/content/blog/*.md` a `src/content/blog/` sin renombrar**: el nombre del
+     archivo es el último segmento de la URL original (`/blog/post-01/` → `post-01.md`) y la colección usa ese
+     nombre como slug, así `/blog/post-01/` se conserva (`targetPath`). Si un post vivía fuera de `/blog/`
+     (`/2024/01/x/`), `targetPath` es `/blog/x/` y `plan-redirects --brief` emite el 301 solo. El schema
+     (`src/content.config.ts`) acepta el frontmatter del extractor (`null` permitido; `path`, `type`, `images`,
+     `confidence` se ignoran). Si `date` es `null`, pide la fecha o usa la del sitemap/WXR; nunca la de hoy sin
+     avisar. Primer `images[].local` → `image` (ruta en `public/` o `src/assets/migrated/`).
+   - `type: page` → copia `migration/content/pages/<slug>.md` a `src/content/pages/<slug>.md` (Markdown tal cual)
+     + `src/pages/<ruta>.astro` que lo renderiza en `targetPath`. El cuerpo **no** trae el H1 (el extractor lo
+     quita cuando coincide con `title`): el único `<h1>` lo pinta `Section` desde el frontmatter y `<Prose>`
+     recibe el cuerpo, así `check-seo` ve exactamente un H1 por página:
      ```astro
      ---
      import Base from '../layouts/Base.astro';
@@ -47,7 +54,13 @@ Si hay `--from`, el brief ya existe: **no repitas preguntas**. Procedimiento:
        <Section id="<slug>" title={frontmatter.title} as="h1"><Prose><Content /></Prose></Section>
      </Base>
      ```
+     `frontmatter.title` ya viene sin el sufijo " - Nombre del sitio" (`Base` lo añade una sola vez). Los enlaces
+     internos del Markdown son relativos a la raíz (`/servicios/`); si una ruta cambia en `mapping.json`, actualiza
+     el enlace o deja que el 301 lo resuelva. Las imágenes no descargadas siguen apuntando al host antiguo: revisa
+     `images[].local === null` y descárgalas o márcalas `PLACEHOLDER` antes de entregar.
      La home, contacto y servicios se rehacen con `Section`/`Card` a partir del Markdown (layout nuevo, mismo contenido).
+   - Archivos de taxonomía (`/tag/<x>/`, `/author/<x>/`) llegan como `type: page`: normalmente **no** se
+     reconstruyen; van a `mapping.json` como `null` (→ padre) o `{ "to": "/blog/", "reason": "archivo de etiquetas" }`.
    - Imágenes: `migration/assets/*` → `src/assets/migrated/`; reescribe `../assets/<img>` → `../../assets/migrated/<img>`
      en los `.md` (los posts resuelven rutas relativas y las optimizan en build).
    - Si `migration.posts > 0` → `showBlog: true` en `src/config/site.ts` (añade "Blog" al menú; `/blog/` entra en el sitemap solo si hay `.md`).

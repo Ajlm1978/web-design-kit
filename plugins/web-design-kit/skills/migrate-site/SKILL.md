@@ -82,8 +82,13 @@ En inventarios de carpeta/repo los enlaces a rutas dinámicas del CMS (`/tag/`, 
 ```bash
 node "$M/extract-content.mjs" "$OUT/inventory.json" --out "$OUT" --download-images [--source-root <carpeta escaneada>]
 ```
-Salida: `$OUT/content/<slug>.md` (frontmatter `sourceUrl, title, description, type page|post, date, author, tags,
-images[], confidence`), `$OUT/assets/` (imágenes ≤ 10 MB, nombres slug) y `$OUT/brief.json`.
+Salida: `$OUT/content/blog/<slug>.md` (posts; `<slug>` = último segmento de la URL original, p. ej.
+`/blog/post-01/` → `post-01.md`, para que copiado a `src/content/blog/` conserve la URL) y
+`$OUT/content/pages/<slug>.md` (páginas). Frontmatter: `sourceUrl, path, title, description, type page|post, date,
+author, tags, images[], confidence`; el `title` ya viene sin el sufijo " - Nombre del sitio", el cuerpo no repite el
+H1 (lo pinta la plantilla), los enlaces internos son relativos a la raíz y la meta de WP (fecha/autor/etiquetas) no
+va en el cuerpo. `$OUT/assets/` (imágenes ≤ 10 MB, nombres slug) y `$OUT/brief.json`, cuyo `pages[]` lleva
+`path` (ruta original), `targetPath` (por defecto la misma; posts fuera de `/blog/` → `/blog/<slug>/`) y `file`.
 `--source-root` solo hace falta si `inventory.source.root` es `null` (repos clonados en tmp) y quieres leer CSS/imágenes del disco.
 Comprueba:
 - `brief.sources[campo].confidence`: cuenta los `high`; < 5 significa que el sitio aportó poco dato estructurado
@@ -106,6 +111,7 @@ Comprueba:
    conservar marca, rehacer layout) y qué páginas se descartan (alimenta `mapping.json`), copia posts a
    `src/content/blog/`, páginas a `src/content/pages/` + `src/pages/<slug>.astro`, imágenes a `src/assets/migrated/`,
    activa `showBlog` si hay posts y corre los gates del kit (check, build, Playwright+axe, check-seo, lhci, PLACEHOLDER).
+   Los posts se copian de `$OUT/content/blog/*.md` a `src/content/blog/` **sin renombrar** (el nombre ya es el slug de la URL).
 3. Al volver, confirma que existe `dist/` del build final antes de la fase 5.
 
 ## Fase 5 — Redirects y paridad (gate bloqueante: 0 huérfanas)

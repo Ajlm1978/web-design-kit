@@ -22,7 +22,7 @@ con el kit que conserve la marca, rehaga el layout, migre todo el blog y no pier
 | 0 Autorización | skill | pregunta y registro en `migration/AUTHORIZATION.md` (quién, fecha, base) | sin "sí" → STOP |
 | 1 Inventario | `crawl-site.mjs` (URL) · `scan-source.mjs` (dir/repo) | `inventory.json` + `raw/<hash>.html` | ≥1 página; sin errores de red fatales |
 | 2 Auditoría | `audit-site.mjs` (reusa reglas de `check-seo.mjs` sobre `raw/`) + Lighthouse en top 5 | `audit.md` | siempre se genera |
-| 3 Extracción | `extract-content.mjs` | `content/<slug>.md` · `brief.json` · `assets/` (imágenes) | brief válido contra `brief.schema.json` |
+| 3 Extracción | `extract-content.mjs` | `content/blog/<slug>.md` (posts, slug = último segmento de la URL) · `content/pages/<slug>.md` · `brief.json` (`pages[]` con `path`/`targetPath`/`file`) · `assets/` (imágenes) | brief válido contra `brief.schema.json` |
 | 4 Reconstrucción | `/new-website --from migration/brief.json` | proyecto Astro | gates del kit |
 | 5 Redirects/paridad | `check-redirects.mjs` | `redirects.json` → `vercel.json`/`_redirects` | 0 URLs antiguas sin destino |
 

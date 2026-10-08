@@ -1,0 +1,17 @@
+/* Tema WordPress-like de PLACEHOLDER Taller Demo */
+:root { --brand: #0f766e; --accent: #f59e0b; }
+body { font-family: Inter, sans-serif; color: #1f2937; background: #ffffff; margin: 0; }
+h1 { font-family: "Playfair Display", serif; color: #0f766e; }
+h2, h3 { font-family: "Playfair Display", serif; color: #111827; }
+a { color: #0f766e; }
+a:hover { color: #f59e0b; }
+.site-header { background: #0f766e; color: #ffffff; padding: 1rem; }
+.main-navigation a { color: #ffffff; }
+.main-navigation a:hover { color: #f59e0b; }
+.card { border: 1px solid #e5e7eb; border-top: 4px solid #f59e0b; padding: 1rem; }
+.card a { background: #0f766e; color: #ffffff; padding: .5rem 1rem; }
+button { background: #f59e0b; color: #111827; border: 0; }
+.site-footer { background: #111827; color: #9ca3af; border-top: 3px solid #0f766e; }
+.cookie-notice { background: #f59e0b; position: fixed; bottom: 0; }
+blockquote { border-left: 4px solid #0f766e; color: #4b5563; }
+table th { background: #0f766e; color: #ffffff; }

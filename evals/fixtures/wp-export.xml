@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!-- Export WXR de PLACEHOLDER Taller Demo, generado por evals/fixtures/generate.mjs -->
+<rss version="2.0"
+  xmlns:excerpt="http://wordpress.org/export/1.2/excerpt/"
+  xmlns:content="http://purl.org/rss/1.0/modules/content/"
+  xmlns:wfw="http://wellformedweb.org/CommentAPI/"
+  xmlns:dc="http://purl.org/dc/elements/1.1/"
+  xmlns:wp="http://wordpress.org/export/1.2/">
+<channel>
+  <title>Taller Demo</title>
+  <link>https://taller-demo.example</link>
+  <description>Taller mecánico en Miami</description>
+  <pubDate>Sat, 15 Jun 2024 12:00:00 +0000</pubDate>
+  <language>es</language>
+  <wp:wxr_version>1.2</wp:wxr_version>
+  <wp:base_site_url>https://taller-demo.example</wp:base_site_url>
+  <wp:base_blog_url>https://taller-demo.example</wp:base_blog_url>
+  <wp:author>
+    <wp:author_id>1</wp:author_id>
+    <wp:author_login><![CDATA[ana]]></wp:author_login>
+    <wp:author_email><![CDATA[ana@taller-demo.example]]></wp:author_email>
+    <wp:author_display_name><![CDATA[Ana Pérez]]></wp:author_display_name>
+  </wp:author>
+  <generator>https://wordpress.org/?v=6.5</generator>
+  <item>
+    <title><![CDATA[Primer artículo publicado]]></title>
+    <link>https://taller-demo.example/blog/primer-articulo/</link>
+    <pubDate>Wed, 10 Jan 2024 09:00:00 GMT</pubDate>
+    <dc:creator><![CDATA[ana]]></dc:creator>
+    <guid isPermaLink="false">https://taller-demo.example/?p=1</guid>
+    <description></description>
+    <content:encoded><![CDATA[<h2>Introducción</h2>
+<p>Nuestro equipo certificado trabaja con herramientas de diagnóstico de última generación. Ofrecemos presupuesto por escrito antes de empezar cualquier trabajo.</p>
+<ul>
+<li>Punto uno</li>
+<li>Punto dos</li>
+</ul>
+<p><img src="https://taller-demo.example/wp-content/uploads/2024/01/foto-1.jpg" alt="Foto 1" width="800" height="600"></p>
+<p>Más en <a href="https://taller-demo.example/servicios/">servicios</a>.</p>]]></content:encoded>
+    <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+    <wp:post_id>1</wp:post_id>
+    <wp:post_date><![CDATA[2024-01-10 09:00:00]]></wp:post_date>
+    <wp:post_date_gmt><![CDATA[2024-01-10 14:00:00]]></wp:post_date_gmt>
+    <wp:comment_status><![CDATA[open]]></wp:comment_status>
+    <wp:ping_status><![CDATA[open]]></wp:ping_status>
+    <wp:post_name><![CDATA[primer-articulo]]></wp:post_name>
+    <wp:status><![CDATA[publish]]></wp:status>
+    <wp:post_parent>0</wp:post_parent>
+    <wp:menu_order>0</wp:menu_order>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <wp:post_password><![CDATA[]]></wp:post_password>
+    <wp:is_sticky>0</wp:is_sticky>
+    <category domain="category" nicename="mantenimiento"><![CDATA[Mantenimiento]]></category>
+    <category domain="post_tag" nicename="frenos"><![CDATA[frenos]]></category>
+  </item>
+  <item>
+    <title><![CDATA[Segundo artículo publicado]]></title>
+    <link>https://taller-demo.example/blog/segundo-articulo/</link>
+    <pubDate>Wed, 14 Feb 2024 09:00:00 GMT</pubDate>
+    <dc:creator><![CDATA[ana]]></dc:creator>
+    <guid isPermaLink="false">https://taller-demo.example/?p=2</guid>
+    <description></description>
+    <content:encoded><![CDATA[<h2>Introducción</h2>
+<p>Atendemos tanto a particulares como a flotas comerciales de toda la ciudad. La garantía cubre piezas y mano de obra durante doce meses.</p>
+<ul>
+<li>Punto uno</li>
+<li>Punto dos</li>
+</ul>
+<p><img src="https://taller-demo.example/wp-content/uploads/2024/02/foto-2.jpg" alt="Foto 2" width="800" height="600"></p>
+<p>Más en <a href="https://taller-demo.example/servicios/">servicios</a>.</p>]]></content:encoded>
+    <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+    <wp:post_id>2</wp:post_id>
+    <wp:post_date><![CDATA[2024-02-14 09:00:00]]></wp:post_date>
+    <wp:post_date_gmt><![CDATA[2024-02-14 14:00:00]]></wp:post_date_gmt>
+    <wp:comment_status><![CDATA[open]]></wp:comment_status>
+    <wp:ping_status><![CDATA[open]]></wp:ping_status>
+    <wp:post_name><![CDATA[segundo-articulo]]></wp:post_name>
+    <wp:status><![CDATA[publish]]></wp:status>
+    <wp:post_parent>0</wp:post_parent>
+    <wp:menu_order>0</wp:menu_order>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <wp:post_password><![CDATA[]]></wp:post_password>
+    <wp:is_sticky>0</wp:is_sticky>
+    <category domain="category" nicename="mantenimiento"><![CDATA[Mantenimiento]]></category>
+    <category domain="post_tag" nicename="aceite"><![CDATA[aceite]]></category>
+  </item>
+  <item>
+    <title><![CDATA[Tercer artículo publicado]]></title>
+    <link>https://taller-demo.example/blog/tercer-articulo/</link>
+    <pubDate>Wed, 20 Mar 2024 09:00:00 GMT</pubDate>
+    <dc:creator><![CDATA[ana]]></dc:creator>
+    <guid isPermaLink="false">https://taller-demo.example/?p=3</guid>
+    <description></description>
+    <content:encoded><![CDATA[<h2>Introducción</h2>
+<p>Cada reparación incluye una revisión gratuita de niveles y presión de neumáticos. Puedes esperar en nuestra sala con café y conexión Wi-Fi mientras trabajamos.</p>
+<ul>
+<li>Punto uno</li>
+<li>Punto dos</li>
+</ul>
+<p><img src="https://taller-demo.example/wp-content/uploads/2024/03/foto-3.jpg" alt="Foto 3" width="800" height="600"></p>
+<p>Más en <a href="https://taller-demo.example/servicios/">servicios</a>.</p>]]></content:encoded>
+    <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+    <wp:post_id>3</wp:post_id>
+    <wp:post_date><![CDATA[2024-03-20 09:00:00]]></wp:post_date>
+    <wp:post_date_gmt><![CDATA[2024-03-20 14:00:00]]></wp:post_date_gmt>
+    <wp:comment_status><![CDATA[open]]></wp:comment_status>
+    <wp:ping_status><![CDATA[open]]></wp:ping_status>
+    <wp:post_name><![CDATA[tercer-articulo]]></wp:post_name>
+    <wp:status><![CDATA[publish]]></wp:status>
+    <wp:post_parent>0</wp:post_parent>
+    <wp:menu_order>0</wp:menu_order>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <wp:post_password><![CDATA[]]></wp:post_password>
+    <wp:is_sticky>0</wp:is_sticky>
+    <category domain="category" nicename="mantenimiento"><![CDATA[Mantenimiento]]></category>
+    <category domain="post_tag" nicename="neumaticos"><![CDATA[neumaticos]]></category>
+  </item>
+  <item>
+    <title><![CDATA[Borrador sin terminar]]></title>
+    <link>https://taller-demo.example/blog/borrador/</link>
+    <pubDate>Mon, 01 Apr 2024 09:00:00 GMT</pubDate>
+    <dc:creator><![CDATA[ana]]></dc:creator>
+    <guid isPermaLink="false">https://taller-demo.example/?p=4</guid>
+    <description></description>
+    <content:encoded><![CDATA[<h2>Introducción</h2>
+<p>Ofrecemos presupuesto por escrito antes de empezar cualquier trabajo. Si la avería es grave, te ayudamos a gestionar el remolque hasta el taller.</p>
+<ul>
+<li>Punto uno</li>
+<li>Punto dos</li>
+</ul>
+<p><img src="https://taller-demo.example/wp-content/uploads/2024/04/foto-4.jpg" alt="Foto 4" width="800" height="600"></p>
+<p>Más en <a href="https://taller-demo.example/servicios/">servicios</a>.</p>]]></content:encoded>
+    <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+    <wp:post_id>4</wp:post_id>
+    <wp:post_date><![CDATA[2024-04-01 09:00:00]]></wp:post_date>
+    <wp:post_date_gmt><![CDATA[2024-04-01 14:00:00]]></wp:post_date_gmt>
+    <wp:comment_status><![CDATA[open]]></wp:comment_status>
+    <wp:ping_status><![CDATA[open]]></wp:ping_status>
+    <wp:post_name><![CDATA[borrador]]></wp:post_name>
+    <wp:status><![CDATA[draft]]></wp:status>
+    <wp:post_parent>0</wp:post_parent>
+    <wp:menu_order>0</wp:menu_order>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <wp:post_password><![CDATA[]]></wp:post_password>
+    <wp:is_sticky>0</wp:is_sticky>
+    <category domain="category" nicename="mantenimiento"><![CDATA[Mantenimiento]]></category>
+    <category domain="post_tag" nicename="diagnostico"><![CDATA[diagnostico]]></category>
+  </item>
+  <item>
+    <title><![CDATA[Nota privada del equipo]]></title>
+    <link>https://taller-demo.example/blog/nota-privada/</link>
+    <pubDate>Sun, 05 May 2024 09:00:00 GMT</pubDate>
+    <dc:creator><![CDATA[ana]]></dc:creator>
+    <guid isPermaLink="false">https://taller-demo.example/?p=5</guid>
+    <description></description>
+    <content:encoded><![CDATA[<h2>Introducción</h2>
+<p>La garantía cubre piezas y mano de obra durante doce meses. Llevamos más de veinte años reparando vehículos en Miami con honestidad y precios claros.</p>
+<ul>
+<li>Punto uno</li>
+<li>Punto dos</li>
+</ul>
+<p><img src="https://taller-demo.example/wp-content/uploads/2024/05/foto-5.jpg" alt="Foto 5" width="800" height="600"></p>
+<p>Más en <a href="https://taller-demo.example/servicios/">servicios</a>.</p>]]></content:encoded>
+    <excerpt:encoded><![CDATA[]]></excerpt:encoded>
+    <wp:post_id>5</wp:post_id>
+    <wp:post_date><![CDATA[2024-05-05 09:00:00]]></wp:post_date>
+    <wp:post_date_gmt><![CDATA[2024-05-05 14:00:00]]></wp:post_date_gmt>
+    <wp:comment_status><![CDATA[open]]></wp:comment_status>
+    <wp:ping_status><![CDATA[open]]></wp:ping_status>
+    <wp:post_name><![CDATA[nota-privada]]></wp:post_name>
+    <wp:status><![CDATA[private]]></wp:status>
+    <wp:post_parent>0</wp:post_parent>
+    <wp:menu_order>0</wp:menu_order>
+    <wp:post_type><![CDATA[post]]></wp:post_type>
+    <wp:post_password><![CDATA[]]></wp:post_password>
+    <wp:is_sticky>0</wp:is_sticky>
+    <category domain="category" nicename="mantenimiento"><![CDATA[Mantenimiento]]></category>
+    <category domain="post_tag" nicename="electrico"><![CDATA[electrico]]></category>
+  </item>
+</channel>
+</rss>

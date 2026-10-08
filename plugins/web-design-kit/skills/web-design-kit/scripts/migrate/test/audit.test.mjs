@@ -2,7 +2,7 @@
  * audit.test.mjs — pruebas de audit-site.mjs sobre el inventario del fixture wp-like.
  *
  * Ejecutar: node --test plugins/web-design-kit/skills/web-design-kit/scripts/migrate/test/
- * El inventario se construye con scan() (carpeta estática, 42 páginas, sin entradas 404): los enlaces rotos
+ * El inventario se construye con scan() (carpeta estática, 51 páginas, sin entradas 404): los enlaces rotos
  * se deducen de los destinos que no existen en el inventario (los 3 enlaces a `/no-existe-N/`).
  */
 
@@ -85,13 +85,13 @@ describe('audit(inventory) — fixture wp-like', () => {
     assert.ok(existsSync(join(fixture, 'index.html')), 'fixture wp-like no encontrado (corre evals/fixtures/generate.mjs)');
     const invDir = tmp();
     inv = await scan(fixture, { out: invDir });
-    assert.equal(inv.pages.length, 42);
+    assert.equal(inv.pages.length, 51);
     out = tmp();
     result = await audit(inv, { inventoryDir: invDir, out, lighthouse: false, fetch: false });
   });
 
   test('summary: 3 enlaces rotos (no-existe-1/2/3) y 1 duplicado', () => {
-    assert.equal(result.summary.pages, 42);
+    assert.equal(result.summary.pages, 51);
     assert.equal(result.summary.broken, 3);
     const targets = result.brokenLinks.map((b) => b.to).sort();
     assert.deepEqual(targets, ['http://localhost/no-existe-1/', 'http://localhost/no-existe-2/', 'http://localhost/no-existe-3/']);
@@ -105,9 +105,10 @@ describe('audit(inventory) — fixture wp-like', () => {
     assert.match(result.duplicates[0].contentHash, /^[0-9a-f]{40}$/);
   });
 
-  test('las rutas dinámicas del CMS (/tag/, /author/) no cuentan como rotas en modo dir', () => {
+  test('los archivos /tag/ y /author/ existen en el fixture: ni rotos ni no verificables', () => {
     assert.ok(!result.brokenLinks.some((b) => /\/(tag|author)\//.test(b.to)));
-    assert.ok(result.unresolved.some((u) => /\/tag\//.test(u.to)), 'se listan como no verificables');
+    assert.ok(!result.unresolved.some((u) => /\/(tag|author)\//.test(u.to)));
+    assert.equal(result.summary.unresolved, 0);
   });
 
   test('audit.json y audit.md se escriben con la forma esperada', () => {
@@ -119,7 +120,7 @@ describe('audit(inventory) — fixture wp-like', () => {
     for (const k of ['pages', 'errors', 'warnings', 'broken', 'duplicates', 'heavyImages', 'jsOnly']) {
       assert.equal(typeof json.summary[k], 'number', `summary.${k}`);
     }
-    assert.equal(json.pages.length, 42);
+    assert.equal(json.pages.length, 51);
     for (const p of json.pages) {
       assert.equal(typeof p.url, 'string');
       assert.ok(Array.isArray(p.errors));

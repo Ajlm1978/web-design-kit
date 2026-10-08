@@ -168,9 +168,9 @@ describe('extract-content.mjs (wp-like)', () => {
     brief = JSON.parse(readFileSync(join(out, 'brief.json'), 'utf8'));
   });
 
-  test('content/ tiene 42 archivos .md', () => {
+  test('content/ tiene 51 archivos .md', () => {
     const files = readdirSync(join(out, 'content')).filter((f) => f.endsWith('.md'));
-    assert.equal(files.length, 42);
+    assert.equal(files.length, 51);
     assert.ok(files.includes('index.md'));
     assert.ok(files.includes('contacto.md'));
     assert.ok(files.includes('blog-post-01.md'));
@@ -260,15 +260,15 @@ describe('extract-content.mjs (wp-like)', () => {
   });
 
   test('brief: pages, migration y validez contra el schema', () => {
-    assert.equal(brief.pages.length, 42);
-    assert.equal(brief.migration.inventoryCount, 42);
+    assert.equal(brief.pages.length, 51);
+    assert.equal(brief.migration.inventoryCount, 51);
     assert.equal(brief.migration.posts, 30);
     assert.equal(brief.migration.redirectsPlanned, null);
     const r = validateBrief(brief);
     assert.deepEqual(r.errors, []);
     assert.equal(r.ok, true);
     assert.equal(result.brief.name, brief.name);
-    assert.equal(result.files.length, 42);
+    assert.equal(result.files.length, 51);
   });
 
   test('brief: todo campo no nulo inferido tiene entrada en sources', () => {

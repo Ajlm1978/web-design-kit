@@ -6,9 +6,12 @@
  *
  * Escribe:
  *   evals/fixtures/wp-like/      sitio estático con estructura WordPress:
- *                                12 páginas + 30 posts (/blog/post-NN/), sitemap.xml, robots.txt,
- *                                style.css, logo.svg, 3 enlaces rotos, 1 página duplicada,
+ *                                12 páginas + 30 posts (/blog/post-NN/) + 9 archivos de taxonomía
+ *                                (/tag/<slug>/ ×6, /author/<slug>/ ×3, como genera WordPress), sitemap.xml,
+ *                                robots.txt, style.css, logo.svg, 3 enlaces rotos, 1 página duplicada,
  *                                JSON-LD LocalBusiness en /contacto/, theme-color, 1 enlace externo.
+ *                                Total: 51 index.html; servido por un servidor estático simple, solo los 3
+ *                                enlaces /no-existe-N/ responden 404.
  *   evals/fixtures/wp-export.xml WXR 1.2 con 5 items (3 publish, 1 draft, 1 private).
  *   evals/fixtures/spa-like/     index.html con <div id="root"> vacío + app.js que inyecta contenido.
  *
@@ -119,6 +122,15 @@ ${body}
 
 const AUTHORS = ['Ana Pérez', 'Luis Gómez', 'María Ruiz'];
 const TAGS = ['mantenimiento', 'frenos', 'aceite', 'neumaticos', 'diagnostico', 'electrico'];
+
+/** Slug ASCII como el `user_nicename` de WordPress: "María Ruiz" → "maria". */
+function authorSlug(name) {
+  return name
+    .split(' ')[0]
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase();
+}
 const POST_TOPICS = [
   'Cómo saber cuándo cambiar el aceite',
   'Señales de que tus frenos necesitan revisión',
@@ -171,7 +183,7 @@ function postPage(post) {
     <h1 class="entry-title">${esc(post.title)}</h1>
     <div class="entry-meta">
       <span class="posted-on">Publicado el <time datetime="${post.date}T09:00:00-05:00">${post.date}</time></span>
-      <span class="byline">por <a class="url fn n" href="/author/${post.author.split(' ')[0].toLowerCase()}/" rel="author">${esc(post.author)}</a></span>
+      <span class="byline">por <a class="url fn n" href="/author/${authorSlug(post.author)}/" rel="author">${esc(post.author)}</a></span>
     </div>
   </header>
   <div class="entry-content">
@@ -413,6 +425,37 @@ function pageHtml(page) {
 }
 
 // ---------------------------------------------------------------------------
+// Archivos de taxonomía (/tag/<slug>/, /author/<slug>/), como los genera WordPress
+// ---------------------------------------------------------------------------
+
+/** Listado sin <article> ni <time> fuera de <li>: el extractor lo clasifica como `page`, no como post. */
+function archivePage({ path, title, description, posts }) {
+  const main = `<main id="primary" class="site-main">
+  <header class="page-header"><h1 class="page-title">${esc(title)}</h1></header>
+  <p>${esc(description)}</p>
+  <ul class="post-list">
+${posts.map((p) => `    <li><a href="${p.path}">${esc(p.title)}</a> <time datetime="${p.date}">${p.date}</time></li>`).join('\n')}
+  </ul>
+</main>`;
+  return layout({ path, title, description, body: main, bodyClass: 'archive' });
+}
+
+const ARCHIVES = [
+  ...TAGS.map((tag) => ({
+    path: `/tag/${tag}/`,
+    title: `Etiqueta: ${tag}`,
+    description: `Artículos del blog etiquetados con «${tag}».`,
+    posts: POSTS.filter((p) => p.tags.includes(tag)),
+  })),
+  ...AUTHORS.map((author) => ({
+    path: `/author/${authorSlug(author)}/`,
+    title: `Autor: ${author}`,
+    description: `Artículos escritos por ${author}.`,
+    posts: POSTS.filter((p) => p.author === author),
+  })),
+];
+
+// ---------------------------------------------------------------------------
 // Generación wp-like
 // ---------------------------------------------------------------------------
 
@@ -425,8 +468,15 @@ function generateWpLike(root) {
   for (const post of POSTS) {
     write(join(root, post.path, 'index.html'), postPage(post));
   }
+  for (const archive of ARCHIVES) {
+    write(join(root, archive.path, 'index.html'), archivePage(archive));
+  }
 
-  const urls = [...PAGES.filter((p) => p.path !== '/privado/').map((p) => p.path), ...POSTS.map((p) => p.path)];
+  const urls = [
+    ...PAGES.filter((p) => p.path !== '/privado/').map((p) => p.path),
+    ...POSTS.map((p) => p.path),
+    ...ARCHIVES.map((a) => a.path),
+  ];
   const sitemap = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map((u) => `  <url><loc>${ORIGIN}${u}</loc><lastmod>2024-06-15</lastmod></url>`).join('\n')}

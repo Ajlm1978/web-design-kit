@@ -42,7 +42,7 @@ function serveFixture(root, { robots } = {}) {
       res.writeHead(200, { 'content-type': 'text/plain' });
       return res.end(robots);
     }
-    if (/^\/(tag|author)\//.test(path)) {
+    if (/^\/legacy\//.test(path)) {
       res.writeHead(301, { location: '/blog/' });
       return res.end();
     }
@@ -146,19 +146,19 @@ describe('crawl-site sobre wp-like', () => {
     }
   });
 
-  test('rastrea las 41 páginas accesibles (42 index.html menos /privado/) y registra 3 rotas con 404', () => {
+  test('rastrea las 50 páginas accesibles (51 index.html menos /privado/) y registra 3 rotas con 404', () => {
     const ok = inv.pages.filter((p) => p.status === 200);
     const broken = inv.pages.filter((p) => p.status === 404);
-    assert.equal(ok.length, 41, ok.map((p) => p.url).join('\n'));
+    assert.equal(ok.length, 50, ok.map((p) => p.url).join('\n'));
     assert.equal(broken.length, 3);
     assert.deepEqual(
       broken.map((p) => new URL(p.url).pathname).sort(),
       ['/no-existe-1/', '/no-existe-2/', '/no-existe-3/'],
     );
-    assert.equal(inv.pages.length, 44);
+    assert.equal(inv.pages.length, 53);
     // /duplicada/ solo está en el sitemap: prueba que la semilla del sitemap funciona.
     assert.ok(inv.pages.some((p) => p.url === `${site.origin}/duplicada/`));
-    assert.equal(inv.stats.fetched >= 44, true);
+    assert.equal(inv.stats.fetched >= 53, true);
   });
 
   test('la página duplicada comparte contentHash con la original', () => {
@@ -182,13 +182,11 @@ describe('crawl-site sobre wp-like', () => {
     assert.ok(!inv.pages.some((p) => p.url.endsWith('/privado/')));
   });
 
-  test('/tag/* y /author/* (301 internos) quedan en skipped como redirect y no se duplican en pages', () => {
-    const redirects = inv.skipped.filter((x) => x.reason === 'redirect');
-    assert.equal(redirects.length, 9);
-    for (const r of redirects) {
-      assert.equal(r.status, 301);
-      assert.equal(r.finalUrl, `${site.origin}/blog/`);
-    }
+  test('los archivos /tag/* y /author/* (9) se rastrean como páginas 200, no como rotas ni redirects', () => {
+    const archives = inv.pages.filter((p) => /\/(tag|author)\/[^/]+\/$/.test(p.url));
+    assert.equal(archives.length, 9);
+    assert.ok(archives.every((p) => p.status === 200));
+    assert.equal(inv.skipped.filter((x) => x.reason === 'redirect').length, 0);
   });
 
   test('metadatos por página y raw/<sha1>.html escrito', () => {
@@ -206,9 +204,9 @@ describe('crawl-site sobre wp-like', () => {
     assert.equal(contacto.rawFile, `raw/${rawFileName(contacto.url)}`);
     const raw = readFileSync(join(out, contacto.rawFile), 'utf8');
     assert.ok(raw.includes('LocalBusiness'));
-    assert.equal(readdirSync(join(out, 'raw')).length, 44);
+    assert.equal(readdirSync(join(out, 'raw')).length, 53);
     const written = JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8'));
-    assert.equal(written.pages.length, 44);
+    assert.equal(written.pages.length, 53);
   });
 
   test('--max-pages 5 se detiene en 5 páginas', async () => {

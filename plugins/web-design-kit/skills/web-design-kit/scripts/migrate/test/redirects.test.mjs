@@ -52,7 +52,7 @@ function run(script, args, opts = {}) {
   });
 }
 
-/** Las 12 páginas del fixture (sin posts). */
+/** Las 21 páginas del fixture (12 + 9 archivos /tag/ y /author/; sin posts). */
 const PAGES = [
   '/',
   '/blog/',
@@ -66,6 +66,15 @@ const PAGES = [
   '/precios/',
   '/privado/',
   '/servicios/',
+  '/tag/mantenimiento/',
+  '/tag/frenos/',
+  '/tag/aceite/',
+  '/tag/neumaticos/',
+  '/tag/diagnostico/',
+  '/tag/electrico/',
+  '/author/ana/',
+  '/author/luis/',
+  '/author/maria/',
 ];
 
 /** Mapping identidad: cada página se conserva; los posts quedan por defecto. */
@@ -101,7 +110,7 @@ before(async () => {
   const out = tmp('wdk-inv-');
   inventory = await scan(fixture, { out });
   inventoryFile = join(out, 'inventory.json');
-  assert.equal(inventory.pages.length, 42);
+  assert.equal(inventory.pages.length, 51);
 });
 
 // ---------------------------------------------------------------------------
@@ -109,12 +118,12 @@ before(async () => {
 // ---------------------------------------------------------------------------
 
 describe('planRedirects', () => {
-  test('(a) caso feliz: mapping identidad + posts por defecto → 0 redirects, 42 sin cambios', () => {
+  test('(a) caso feliz: mapping identidad + posts por defecto → 0 redirects, 51 sin cambios', () => {
     const plan = planRedirects(inventory, identityMapping());
     assert.equal(plan.redirects.length, 0);
     assert.equal(plan.conflicts.length, 0);
     assert.equal(plan.missing.length, 0);
-    assert.equal(plan.unchanged.length, 42);
+    assert.equal(plan.unchanged.length, 51);
     assert.ok(plan.unchanged.includes('/blog/post-01/'));
   });
 
@@ -203,7 +212,7 @@ describe('checkRedirects', () => {
     assert.equal(r.orphans.length, 0);
     assert.equal(r.loops.length, 0);
     assert.equal(r.conflicts.length, 0);
-    assert.equal(r.checked, 42);
+    assert.equal(r.checked, 51);
   });
 
   test('(b) /faq/ → /preguntas/ y /equipo/ → / : dist sin /faq/ ni /equipo/ → 0 huérfanas', () => {

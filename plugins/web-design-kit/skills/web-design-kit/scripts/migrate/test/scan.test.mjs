@@ -52,13 +52,15 @@ describe('scan(dir) — HTML estático', () => {
   const fixture = resolve(fixtures, 'wp-like');
   assert.ok(existsSync(fixture), `fixture no encontrado: ${fixture} (corre evals/fixtures/generate.mjs)`);
 
-  test('detecta stack static, 42 páginas y JSON-LD de /contacto/', async () => {
+  test('detecta stack static, 51 páginas (12 + 30 posts + 9 archivos tag/author) y JSON-LD de /contacto/', async () => {
     const out = tmp();
     const inv = await scan(fixture, { out });
     assertInventoryShape(inv, 'dir');
     assert.equal(inv.source.stack, 'static');
-    assert.equal(inv.pages.length, 42);
-    assert.equal(inv.stats.fetched, 42);
+    assert.equal(inv.pages.length, 51);
+    assert.equal(inv.stats.fetched, 51);
+    assert.ok(inv.pages.some((p) => p.url === 'http://localhost/tag/aceite/'));
+    assert.ok(inv.pages.some((p) => p.url === 'http://localhost/author/maria/'));
 
     const contacto = inv.pages.find((p) => p.url === 'http://localhost/contacto/');
     assert.ok(contacto, 'falta la página /contacto/');
@@ -75,11 +77,11 @@ describe('scan(dir) — HTML estático', () => {
     // raw/<sha1(url)>.html copiado
     assert.ok(contacto.rawFile.startsWith('raw/'));
     assert.ok(existsSync(join(out, contacto.rawFile)));
-    assert.equal(readdirSync(join(out, 'raw')).length, 42);
+    assert.equal(readdirSync(join(out, 'raw')).length, 51);
 
     // inventory.json escrito en disco y equivalente
     const onDisk = JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8'));
-    assert.equal(onDisk.pages.length, 42);
+    assert.equal(onDisk.pages.length, 51);
     assert.equal(onDisk.source.stack, 'static');
   });
 

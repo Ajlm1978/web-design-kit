@@ -134,6 +134,9 @@ describe('crawl-site sobre wp-like', () => {
     assert.equal(inv.source.stack, null);
     assert.match(inv.source.detectedAt, /^\d{4}-\d{2}-\d{2}T/);
     assert.ok(Array.isArray(inv.pages) && Array.isArray(inv.skipped));
+    // H-11: warnings[] siempre presente (también cuando el rastreo no avisa de nada).
+    assert.ok(Array.isArray(inv.warnings), 'inventory.warnings debe ser un array');
+    assert.ok(Array.isArray(JSON.parse(readFileSync(join(out, 'inventory.json'), 'utf8')).warnings));
     assert.equal(typeof inv.stats.fetched, 'number');
     assert.equal(typeof inv.stats.errors, 'number');
     assert.equal(typeof inv.stats.durationMs, 'number');
@@ -400,9 +403,36 @@ describe('redirecciones y tipos de contenido', () => {
 describe('unidades', () => {
   test('parseSitemap: urlset, sitemapindex y rebase de host coincidente', () => {
     const urlset = parseSitemap('<urlset><url><loc>http://localhost/a/</loc></url><url><loc>http://localhost/b</loc></url><url><loc>https://otro.com/c/</loc></url></urlset>', 'http://localhost:9999');
-    assert.deepEqual(urlset, { kind: 'urlset', urls: ['http://localhost:9999/a/', 'http://localhost:9999/b/'] });
+    assert.deepEqual(urlset, { kind: 'urlset', urls: ['http://localhost:9999/a/', 'http://localhost:9999/b/'], otherHosts: ['otro.com'] });
     const index = parseSitemap('<sitemapindex><sitemap><loc>https://www.s.com/post-sitemap.xml</loc></sitemap></sitemapindex>', 'https://s.com');
-    assert.deepEqual(index, { kind: 'sitemapindex', urls: ['https://s.com/post-sitemap.xml'] });
+    assert.deepEqual(index, { kind: 'sitemapindex', urls: ['https://s.com/post-sitemap.xml'], otherHosts: [] });
+  });
+
+  test('H2-03: sitemap cuyo host no coincide con el del rastreo → aviso en inventory.warnings con el host sugerido', async () => {
+    const site = await serveRoutes({
+      '/': { body: html('Inicio', '<p>' + 'hola '.repeat(60) + '</p><a href="/a/">a</a>') },
+      '/a/': { body: html('A', '<p>' + 'texto '.repeat(60) + '</p>') },
+      '/sitemap.xml': {
+        headers: { 'content-type': 'application/xml' },
+        body: '<urlset><url><loc>http://sitio-canonico.test/</loc></url><url><loc>http://sitio-canonico.test/solo-sitemap/</loc></url></urlset>',
+      },
+    });
+    const dir = mkdtempSync(join(tmpdir(), 'wdk-crawl-sitemap-host-'));
+    try {
+      // El servidor escucha en localhost; rastreamos por 127.0.0.1 para que el origen no coincida con el <loc>.
+      const origin = site.origin.replace('localhost', '127.0.0.1');
+      const inv = await crawl(`${origin}/`, { out: dir, delayMs: 0, quiet: true });
+      assert.ok(Array.isArray(inv.warnings));
+      const w = inv.warnings.find((x) => /sitemap/i.test(x));
+      assert.ok(w, `sin aviso de sitemap: ${JSON.stringify(inv.warnings)}`);
+      assert.match(w, /2 URL/);
+      assert.match(w, /sitio-canonico\.test/);
+      assert.match(w, /127\.0\.0\.1/);
+      assert.ok(!inv.pages.some((p) => p.url.includes('/solo-sitemap/')), 'las URL de otro host no se rastrean');
+    } finally {
+      await site.close();
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 
   test('isJsOnly', () => {

@@ -2,10 +2,13 @@
 /**
  * check-seo.mjs — auditoría SEO técnica de un `dist/` estático (Astro u otro).
  *
- * Uso:  node check-seo.mjs <dist-dir> [--site https://dominio.com] [--json]
+ * Uso:  node check-seo.mjs <dist-dir> [--site https://dominio.com] [--redirects <redirects.json|vercel.json>] [--json]
  *
  * Node >= 22, ESM, cero dependencias. Solo regex/parsing simple (sin DOM).
  * Revisa cada *.html y, a nivel de sitio, robots.txt + sitemap.
+ * Enlaces internos: todo `<a href="/…">` raíz-relativo debe resolver a un archivo del dist (`/x/` → `x/index.html`,
+ * `/x` → `x/index.html` o `x.html`, rutas con extensión → el archivo) o, con --redirects, a un origen de redirect
+ * (`redirects.json` de plan-redirects `[{from}]` o `vercel.json` `{redirects:[{source}]}`); si no → error `link-broken`.
  * Sale con código 1 si hay errores; las advertencias no bloquean.
  *
  * Doctrina: ../references/seo.md
@@ -273,8 +276,80 @@ export function auditHtml(raw, { url = null, site = null, route = null, is404 = 
   return result;
 }
 
+/**
+ * Enlaces internos raíz-relativos de una página (`/x/`, `/x`, `/doc.pdf`), sin query ni fragmento y sin
+ * duplicados. Ignora `//host/...` (protocol-relative) y esquemas.
+ * @param {string} raw HTML completo
+ * @returns {string[]}
+ */
+export function internalLinkPaths(raw) {
+  const html = stripNoise(String(raw ?? ''));
+  const out = new Set();
+  for (const a of tags(html, 'a')) {
+    const href = attr(a, 'href');
+    if (!href || !href.startsWith('/') || href.startsWith('//')) continue;
+    const path = href.split(/[?#]/)[0];
+    if (path) out.add(path);
+  }
+  return [...out];
+}
+
+/** ¿Existe en `distDir` un archivo que sirva `path`? (`/x/` → x/index.html; `/x` → x/index.html | x.html; `/a.pdf` → a.pdf). */
+export function distServes(distDir, path) {
+  let p;
+  try {
+    p = decodeURIComponent(path);
+  } catch {
+    p = path;
+  }
+  const segments = p.split('/').filter(Boolean);
+  const last = segments[segments.length - 1] ?? '';
+  const candidates = [];
+  if (p.endsWith('/') || segments.length === 0) {
+    candidates.push(join(distDir, ...segments, 'index.html'));
+  } else if (/\.[a-z0-9]{1,8}$/i.test(last)) {
+    candidates.push(join(distDir, ...segments));
+  } else {
+    candidates.push(join(distDir, ...segments, 'index.html'));
+    candidates.push(join(distDir, ...segments.slice(0, -1), `${last}.html`));
+  }
+  return candidates.some((f) => {
+    try {
+      return existsSync(f) && statSync(f).isFile();
+    } catch {
+      return false;
+    }
+  });
+}
+
+/**
+ * Orígenes de redirect de un `redirects.json` (plan-redirects: `[{from}]`) o un `vercel.json` (`{redirects:[{source}]}`).
+ * Rutas normalizadas con barra final cuando no tienen extensión. Los `source` con patrones (`:slug`, `(.*)`) se omiten.
+ * @param {string} file
+ * @returns {Set<string>}
+ */
+export function loadRedirectSources(file) {
+  const data = JSON.parse(readFileSync(file, 'utf8'));
+  const list = Array.isArray(data) ? data : Array.isArray(data?.redirects) ? data.redirects : null;
+  if (!list) throw new Error(`${file} no es un redirects.json ([{from}]) ni un vercel.json ({redirects:[{source}]})`);
+  const out = new Set();
+  for (const r of list) {
+    const from = typeof r?.from === 'string' ? r.from : typeof r?.source === 'string' ? r.source : null;
+    if (!from || /[:*()]/.test(from)) continue;
+    out.add(normalizeLinkPath(from));
+  }
+  return out;
+}
+
+/** `/x` y `/x/` se comparan igual cuando no hay extensión. */
+function normalizeLinkPath(path) {
+  const p = path.split(/[?#]/)[0];
+  const last = p.slice(p.lastIndexOf('/') + 1);
+  return !p.endsWith('/') && !/\.[a-z0-9]{1,8}$/i.test(last) ? `${p}/` : p;
+}
+
 /** Audita un archivo del dist y vuelca los hallazgos en `findings` con la ruta relativa como `file`. */
-function checkPage(absPath, { distDir, site, findings }) {
+function checkPage(absPath, { distDir, site, findings, redirectSources = null }) {
   const rel = relative(distDir, absPath);
   const raw = readFileSync(absPath, 'utf8');
   const is404 = /(^|\/)404\.html$/.test(rel.split(sep).join('/'));
@@ -282,6 +357,18 @@ function checkPage(absPath, { distDir, site, findings }) {
   for (const f of r.errors) findings.push({ level: 'error', file: rel, check: f.code, message: f.msg });
   for (const f of r.warnings) findings.push({ level: 'warn', file: rel, check: f.code, message: f.msg });
   for (const f of r.info) findings.push({ level: 'info', file: rel, check: f.code, message: f.msg });
+
+  // Enlaces internos: deben existir en dist o ser origen de un redirect declarado (--redirects).
+  for (const path of internalLinkPaths(raw)) {
+    if (distServes(distDir, path)) continue;
+    if (redirectSources?.has(normalizeLinkPath(path))) continue;
+    findings.push({
+      level: 'error',
+      file: rel,
+      check: 'link-broken',
+      message: `Enlace interno sin destino en dist${redirectSources ? ' ni en --redirects' : ''}: ${path}`,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -341,13 +428,16 @@ function checkSite({ distDir, site, findings }) {
 
 function main(argv) {
   if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
-    console.log('Uso: node check-seo.mjs <dist-dir> [--site https://dominio.com] [--json]');
+    console.log('Uso: node check-seo.mjs <dist-dir> [--site https://dominio.com] [--redirects <redirects.json|vercel.json>] [--json]');
     process.exit(argv.length === 0 ? 1 : 0);
   }
 
-  const distDir = argv.find((a) => !a.startsWith('--'));
   const siteArgIdx = argv.indexOf('--site');
   let site = siteArgIdx !== -1 ? argv[siteArgIdx + 1] : null;
+  const redirectsArgIdx = argv.indexOf('--redirects');
+  const redirectsFile = redirectsArgIdx !== -1 ? argv[redirectsArgIdx + 1] : null;
+  const valueIdx = new Set([siteArgIdx + 1, redirectsArgIdx + 1].filter((i) => i > 0));
+  const distDir = argv.find((a, i) => !a.startsWith('--') && !valueIdx.has(i));
   const asJson = argv.includes('--json');
 
   if (!distDir || !existsSync(distDir) || !statSync(distDir).isDirectory()) {
@@ -362,9 +452,23 @@ function main(argv) {
     site = site.replace(/\/+$/, '');
   }
 
+  let redirectSources = null;
+  if (redirectsFile) {
+    if (!existsSync(redirectsFile)) {
+      console.error(`✗ --redirects: archivo no encontrado: ${redirectsFile}`);
+      process.exit(1);
+    }
+    try {
+      redirectSources = loadRedirectSources(redirectsFile);
+    } catch (err) {
+      console.error(`✗ --redirects: ${err.message}`);
+      process.exit(1);
+    }
+  }
+
   /** @type {{ level: 'error'|'warn'|'info', file: string, check: string, message: string }[]} */
   const findings = [];
-  const ctx = { distDir, site, findings };
+  const ctx = { distDir, site, findings, redirectSources };
 
   const pages = walkHtml(distDir).sort();
   if (pages.length === 0) findings.push({ level: 'error', file: distDir, check: 'pages', message: 'No se encontró ningún .html en dist' });

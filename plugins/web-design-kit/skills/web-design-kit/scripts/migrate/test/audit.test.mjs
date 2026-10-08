@@ -73,6 +73,95 @@ describe('auditHtml (check-seo.mjs)', () => {
 });
 
 // ---------------------------------------------------------------------------
+// check-seo.mjs CLI → enlaces internos del dist (H2-01)
+// ---------------------------------------------------------------------------
+
+const checkSeoScript = resolve(here, '../../check-seo.mjs');
+
+function runCheckSeo(args) {
+  return new Promise((resolveP) => {
+    const child = spawn(process.execPath, [checkSeoScript, ...args], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.stderr.on('data', (d) => (stderr += d));
+    child.on('close', (code) => resolveP({ code, stdout, stderr }));
+  });
+}
+
+/** Página mínima que pasa auditHtml (sin errores) con los enlaces indicados en <main>. */
+function seoPage(route, links, { site = 'https://s.com' } = {}) {
+  const canonical = `${site}${route}`;
+  return `<!doctype html><html lang="es"><head><meta charset="utf-8"><title>Página de prueba ${route}</title>
+<meta name="description" content="Descripción suficientemente larga para pasar la comprobación de longitud mínima.">
+<link rel="canonical" href="${canonical}"><meta property="og:title" content="t"><meta property="og:description" content="d">
+<meta property="og:image" content="${site}/og.png"><meta name="twitter:card" content="summary_large_image"></head>
+<body><main><h1>Título</h1>${links.map((l) => `<a href="${l}">${l}</a>`).join(' ')}</main></body></html>`;
+}
+
+function makeSeoDist(pages) {
+  const dist = tmp('wdk-seo-dist-');
+  for (const [route, links] of Object.entries(pages)) {
+    const segments = route.split('/').filter(Boolean);
+    const dir = join(dist, ...segments);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'index.html'), seoPage(route, links), 'utf8');
+  }
+  writeFileSync(join(dist, 'robots.txt'), 'User-agent: *\nAllow: /\nSitemap: https://s.com/sitemap-index.xml\n', 'utf8');
+  writeFileSync(join(dist, 'sitemap-index.xml'), '<sitemapindex><sitemap><loc>https://s.com/sitemap-0.xml</loc></sitemap></sitemapindex>', 'utf8');
+  writeFileSync(join(dist, 'sitemap-0.xml'), `<urlset>${Object.keys(pages).map((r) => `<url><loc>https://s.com${r}</loc></url>`).join('')}</urlset>`, 'utf8');
+  writeFileSync(join(dist, 'folleto.pdf'), '%PDF-1.4', 'utf8');
+  writeFileSync(join(dist, 'aviso.html'), seoPage('/aviso.html', []), 'utf8');
+  return dist;
+}
+
+describe('check-seo.mjs — enlaces internos (link-broken)', () => {
+  test('H2-01: enlace raíz-relativo sin archivo en dist → error link-broken; los que resuelven no', async () => {
+    const dist = makeSeoDist({
+      '/': ['/servicios/', '/servicios', '/folleto.pdf', '/no-existe-2/', '/contacto/#mapa', '/servicios/?utm=x'],
+      '/servicios/': ['/'],
+    });
+    const r = await runCheckSeo([dist, '--site', 'https://s.com', '--json']);
+    assert.equal(r.code, 1, r.stdout);
+    const out = JSON.parse(r.stdout);
+    const broken = out.findings.filter((f) => f.check === 'link-broken');
+    assert.equal(broken.length, 2, JSON.stringify(broken));
+    assert.ok(broken.every((f) => f.level === 'error' && f.file === 'index.html'));
+    assert.ok(broken.some((f) => f.message.includes('/no-existe-2/')));
+    assert.ok(broken.some((f) => f.message.includes('/contacto/')));
+    assert.ok(!broken.some((f) => /servicios|folleto/.test(f.message)), 'los enlaces válidos no se marcan');
+  });
+
+  test('H2-01: con --redirects, un enlace cuyo destino es origen de un redirect no es error (redirects.json y vercel.json)', async () => {
+    const dist = makeSeoDist({ '/': ['/faq/', '/equipo/'], '/preguntas/': ['/'] });
+    const dir = tmp('wdk-seo-redirects-');
+    const redirectsFile = join(dir, 'redirects.json');
+    writeFileSync(redirectsFile, JSON.stringify([{ from: '/faq/', to: '/preguntas/', status: 301, reason: 'slug cambiado' }]), 'utf8');
+    const r1 = await runCheckSeo([dist, '--site', 'https://s.com', '--redirects', redirectsFile, '--json']);
+    const out1 = JSON.parse(r1.stdout);
+    const broken1 = out1.findings.filter((f) => f.check === 'link-broken');
+    assert.equal(broken1.length, 1, JSON.stringify(broken1));
+    assert.ok(broken1[0].message.includes('/equipo/'));
+    assert.equal(r1.code, 1);
+
+    const vercelFile = join(dir, 'vercel.json');
+    writeFileSync(vercelFile, JSON.stringify({ trailingSlash: true, redirects: [{ source: '/faq/', destination: '/preguntas/', permanent: true }, { source: '/equipo/', destination: '/', permanent: true }] }), 'utf8');
+    const r2 = await runCheckSeo([dist, '--site', 'https://s.com', '--redirects', vercelFile, '--json']);
+    const out2 = JSON.parse(r2.stdout);
+    assert.equal(out2.findings.filter((f) => f.check === 'link-broken').length, 0, JSON.stringify(out2.findings));
+    assert.equal(r2.code, 0, r2.stdout);
+  });
+
+  test('H2-01: la salida de texto conserva el formato (✗ [archivo] link-broken: …)', async () => {
+    const dist = makeSeoDist({ '/': ['/nada/'] });
+    const r = await runCheckSeo([dist, '--site', 'https://s.com']);
+    assert.equal(r.code, 1);
+    assert.match(r.stdout, /✗ \[index\.html\] link-broken: .*\/nada\//);
+    assert.match(r.stdout, /Resultado: FALLÓ/);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // audit() sobre el inventario de scan(wp-like)
 // ---------------------------------------------------------------------------
 
@@ -156,6 +245,13 @@ describe('audit(inventory) — fixture wp-like', () => {
     assert.ok(md.includes('/no-existe-1/'));
     assert.ok(md.includes('/duplicada/'));
     assert.match(md, /robots\.txt[^\n]*no disponible/i);
+  });
+
+  test('H2-04: la sección de duplicados no promete un destino concreto; remite a mapping.json', () => {
+    const md = readFileSync(join(out, 'audit.md'), 'utf8');
+    const section = md.split('\n## Contenido duplicado\n')[1].split('\n## ')[0];
+    assert.match(section, /se conserva una y las demás redirigen a ella \(se decide en `mapping\.json`\)/);
+    assert.ok(!/→/.test(section), `la sección no debe dibujar destinos concretos:\n${section}`);
   });
 
   test('páginas sin <main> (galeria, legal) no son errores', () => {

@@ -4,10 +4,13 @@
  * Node >= 22, ESM, cero dependencias. Compartido por plan-redirects.mjs y check-redirects.mjs.
  *
  * - pathOf(urlOrPath) → ruta normalizada (`/x/` con barra final si no tiene extensión).
- * - planRedirects(inventory, mapping, opts) → {redirects, unchanged, conflicts, missing}.
+ * - planRedirects(inventory, mapping, opts) → {redirects, unchanged, conflicts, missing, notes, warnings}.
  *     opts.pages: `brief.pages[]` (path/targetPath): un post cuyo targetPath ≠ path recibe 301 automático.
  *     opts.strict: las rutas sin mapping ni targetPath ni --keep son `missing` (por defecto se tratan como
  *     "sin cambios" y es check-redirects quien las verifica contra dist/).
+ *     Claves del mapping que no están en `inventory.pages` pero sí en `inventory.skipped` (robots, redirect…)
+ *     se honran igual (el redirect se emite) y dejan una entrada en `notes[]`; las que no están en ninguno
+ *     generan `warnings[]` ("Clave de mapping no encontrada en el inventario: <ruta>"), no fatal.
  * - resolveChain(path, redirects, maxHops) → {to, status, hops, chain, loop}.
  * - checkRedirects(inventory, dist, redirects, opts) → {ok, checked, redirected, gone, orphans, loops, conflicts}.
  *     opts.conflicts=false omite la detección de conflictos (p. ej. cuando los redirects vienen de un vercel.json,
@@ -108,7 +111,7 @@ export function inventoryPaths(inventory) {
  *   - `strict`: una ruta sin mapping, sin targetPath, que no sea post ni esté en keep → `missing` (exit 1 en la CLI).
  *     Por defecto (false) esas rutas se consideran "sin cambios": `check-redirects` las verifica contra dist/.
  * @returns {{redirects: {from:string,to:string|null,status:number,reason:string}[], unchanged: string[],
- *           conflicts: {to:string, froms:string[]}[], missing: string[]}}
+ *           conflicts: {to:string, froms:string[]}[], missing: string[], notes: string[], warnings: string[]}}
  */
 export function planRedirects(inventory, mapping, { defaultParent = '/', keep = [], postPattern = /^\/blog\//, strict = false, pages = [] } = {}) {
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
@@ -148,6 +151,8 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
   const redirects = [];
   const unchanged = [];
   const missing = [];
+  const notes = [];
+  const warnings = [];
   /** @type {Map<string, {from:string, explicit:boolean}[]>} */
   const byTarget = new Map();
 
@@ -159,6 +164,27 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
     }
   };
 
+  /** Aplica una entrada del mapping a una ruta antigua. */
+  const applyMapping = (from, m) => {
+    if (m.status === 410) {
+      addRedirect({ from, to: null, status: 410, reason: m.reason ?? REASON_GONE }, true);
+      return;
+    }
+    if (m.discarded) {
+      let parent = parentOf(from);
+      while (parent && parent !== root && !destinations.has(parent)) parent = parentOf(parent);
+      const to = parent && destinations.has(parent) ? parent : root;
+      addRedirect({ from, to, status: 301, reason: m.reason ?? REASON_PARENT }, true);
+      return;
+    }
+    if (m.to === from) {
+      unchanged.push(from);
+      return;
+    }
+    addRedirect({ from, to: m.to, status: m.status, reason: m.reason ?? REASON_SLUG }, m.reason !== null);
+  };
+
+  const pathSet = new Set(paths);
   for (const from of paths) {
     const m = map.get(from);
     if (!m) {
@@ -172,22 +198,25 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
       }
       continue;
     }
-    if (m.status === 410) {
-      addRedirect({ from, to: null, status: 410, reason: m.reason ?? REASON_GONE }, true);
-      continue;
+    applyMapping(from, m);
+  }
+
+  // Claves del mapping fuera de inventory.pages: en skipped (robots, redirect…) se honran con nota;
+  // en ninguna parte → aviso (no fatal): probablemente una ruta mal escrita o un sitio distinto.
+  const skippedByPath = new Map();
+  for (const s of inventory?.skipped ?? []) {
+    const p = pathOf(s.url);
+    if (p && !skippedByPath.has(p)) skippedByPath.set(p, s);
+  }
+  for (const [from, m] of map) {
+    if (pathSet.has(from)) continue;
+    const sk = skippedByPath.get(from);
+    if (sk) {
+      applyMapping(from, m);
+      notes.push(`${from}: no está en inventory.pages (skipped: ${sk.reason ?? 'sin motivo'}); se aplica el mapping igualmente`);
+    } else {
+      warnings.push(`Clave de mapping no encontrada en el inventario: ${from}`);
     }
-    if (m.discarded) {
-      let parent = parentOf(from);
-      while (parent && parent !== root && !destinations.has(parent)) parent = parentOf(parent);
-      const to = parent && destinations.has(parent) ? parent : root;
-      addRedirect({ from, to, status: 301, reason: m.reason ?? REASON_PARENT }, true);
-      continue;
-    }
-    if (m.to === from) {
-      unchanged.push(from);
-      continue;
-    }
-    addRedirect({ from, to: m.to, status: m.status, reason: m.reason ?? REASON_SLUG }, m.reason !== null);
   }
 
   const conflicts = [];
@@ -196,7 +225,7 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
     if (froms.length >= 2 && entries.some((e) => !e.explicit)) conflicts.push({ to, froms });
   }
 
-  return { redirects, unchanged, conflicts, missing };
+  return { redirects, unchanged, conflicts, missing, notes, warnings };
 }
 
 /**

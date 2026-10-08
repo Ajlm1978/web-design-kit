@@ -14,7 +14,10 @@
  *                             había <main>/<article>; medium si se eligió por densidad). El H1 del cuerpo se omite
  *                             cuando coincide con el título (la plantilla lo pinta desde el frontmatter); los enlaces
  *                             internos quedan relativos a la raíz (/servicios/) y la meta de WP (fecha/autor/etiquetas)
- *                             no se repite en el cuerpo.
+ *                             no se repite en el cuerpo. Los enlaces internos cuyo destino está roto en el sitio viejo
+ *                             (mismo criterio que audit-site: página con HTTP ≥ 400, skipped por error, o —en carpeta—
+ *                             ruta que no existe y no es dinámica del CMS) se vuelcan como texto plano y se avisa
+ *                             `Enlace roto eliminado: <desde> → <hacia>`.
  *   <out>/assets/             (con --download-images) imágenes ≤ 10 MB con nombre slug; los enlaces del Markdown
  *                             se reescriben a ../assets/<archivo>. Con source.kind 'dir'|'repo' se copian del disco
  *                             (root = inventory.source.root o --source-root); si no hay root, se avisa y no se copia.
@@ -43,6 +46,7 @@ import { pathToFileURL } from 'node:url';
 
 import { slugFromPath } from './lib/url.mjs';
 import { pathOf } from './lib/redirects.mjs';
+import { findBrokenLinks } from './audit-site.mjs';
 import { buildTree, decodeEntities, extractImages, mainContent, nodeText, parseHead } from './lib/html.mjs';
 import { htmlToMarkdown } from './lib/html-to-md.mjs';
 import { emptyBrief, validateBrief, SOCIAL_KEYS } from './lib/brief.mjs';
@@ -247,15 +251,33 @@ function lastSegmentSlug(path) {
  * - post → `blog/<último segmento>.md`, targetPath `/blog/<slug>/` (igual a path si ya estaba bajo /blog/).
  * - page → `pages/<slugFromPath>.md`, targetPath = path.
  * `rootRelativeOrigin`: los enlaces del cuerpo a ese origen se escriben como ruta relativa a la raíz.
+ * `brokenPaths`: rutas (pathOf) rotas en el sitio viejo; los enlaces hacia ellas se vuelcan como texto y se
+ * anotan en `warnings`.
  */
-function pageToDoc(page, html, { rootRelativeOrigin = '' } = {}) {
+function pageToDoc(page, html, { rootRelativeOrigin = '', brokenPaths = null, warnings = [] } = {}) {
   const tree = buildTree(html);
   const base = page.finalUrl ?? page.url;
   const main = mainContent(html);
-  const body = htmlToMarkdown(main.html, { baseUrl: base, rootRelativeOrigin });
+  const path = pathOf(page.url) ?? '/';
+  const removed = new Set();
+  const body = htmlToMarkdown(main.html, {
+    baseUrl: base,
+    rootRelativeOrigin,
+    isBrokenLink: brokenPaths?.size
+      ? (abs) => {
+          if (!rootRelativeOrigin || !abs.startsWith(`${rootRelativeOrigin}/`)) return false;
+          return brokenPaths.has(pathOf(abs));
+        }
+      : null,
+    onBrokenLink: (abs) => {
+      const to = pathOf(abs);
+      if (removed.has(to)) return;
+      removed.add(to);
+      warnings.push(`Enlace roto eliminado: ${path} → ${to}`);
+    },
+  });
   const type = classifyPage(page, tree, html);
   const images = extractImages(main.html, base).map((i) => ({ src: i.src, alt: i.alt, width: i.width, height: i.height }));
-  const path = pathOf(page.url) ?? '/';
   const slug = type === 'post' ? lastSegmentSlug(path) : slugFromPath(page.url);
   const targetPath = type === 'post' ? `/blog/${slug}/` : path;
   const data = {
@@ -827,6 +849,9 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
     }
   })();
 
+  // Destinos rotos del sitio viejo (H2-01): mismo criterio que la auditoría.
+  const brokenPaths = new Set(findBrokenLinks(inventory).broken.map((b) => pathOf(b.to)).filter(Boolean));
+
   // Páginas con HTML disponible
   const entries = [];
   const files = new Map(); // archivo relativo a content/ → url
@@ -845,7 +870,7 @@ export async function extract(inventory, { out, inventoryDir = null, downloadIma
       continue;
     }
     const html = readFileSync(file, 'utf8');
-    const doc = pageToDoc(page, html, { rootRelativeOrigin: origin });
+    const doc = pageToDoc(page, html, { rootRelativeOrigin: origin, brokenPaths, warnings });
     const dir = doc.type === 'post' ? 'blog' : 'pages';
     let slug = doc.slug;
     if (files.has(`${dir}/${slug}.md`)) {

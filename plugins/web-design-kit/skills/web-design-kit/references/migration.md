@@ -84,4 +84,4 @@ mismo host, no se usa: bastan los 301 + sitemap nuevo.
 `migration/AUTHORIZATION.md` (quién autorizó, fecha), `inventory.json`, `audit.md` (para el cliente),
 `content/blog/*.md` + `content/pages/*.md` + `brief.json` (con `sources` y `confidence`), `mapping.json` (decisiones de descarte),
 `redirects.json` + bloque en `vercel.json`/`_redirects`, salida de `check-redirects` con 0 huérfanas, y el
-proyecto Astro en verde (`npm run check && npm run build && npm test`, `check-seo` 0 errores).
+proyecto Astro en verde (`npm run check && npm run build && npm test`, `check-seo --site <SITE.url> --redirects redirects.json` 0 errores: también valida que ningún enlace interno del `dist/` quede sin destino).

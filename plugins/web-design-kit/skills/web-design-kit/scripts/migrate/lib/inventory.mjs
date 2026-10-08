@@ -9,7 +9,7 @@
  * - writeInventory(dir, inv) → escribe `<dir>/inventory.json` y devuelve la ruta.
  *
  * Inventory = {version:1, source:{kind, origin, stack, detectedAt}, pages: Page[], skipped: {url, reason}[],
- *              stats:{fetched, errors, durationMs}}
+ *              stats:{fetched, errors, durationMs}, warnings: string[]}
  * Page = {url, status, finalUrl, title, description, canonical, h1, lang, wordCount, links[], images[],
  *         jsonld[], contentHash, rawFile, rendered}
  */
@@ -47,6 +47,7 @@ export function newInventory(source) {
     pages: [],
     skipped: [],
     stats: { fetched: 0, errors: 0, durationMs: 0 },
+    warnings: [],
   };
 }
 

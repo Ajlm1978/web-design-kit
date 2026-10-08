@@ -10,8 +10,11 @@
  * tags-links|cat-links|entry-footer`): fecha, autor y etiquetas ya van en el frontmatter.
  * Los enlaces e imágenes se resuelven contra `baseUrl`; con `rootRelativeOrigin`, los que apuntan a ese
  * origen se escriben como ruta relativa a la raíz (`/servicios/`) para que no dependan del dominio viejo.
+ * Con `isBrokenLink(absoluteUrl) → boolean`, los enlaces cuyo destino está roto en el sitio viejo se vuelcan
+ * como texto plano (se conserva el ancla, se pierde el href) y se notifica con `onBrokenLink(absoluteUrl)`.
  *
- * htmlToMarkdown(html, {baseUrl, rootRelativeOrigin}) → string (termina en '\n'; bloques separados por línea en blanco).
+ * htmlToMarkdown(html, {baseUrl, rootRelativeOrigin, isBrokenLink, onBrokenLink}) → string
+ *   (termina en '\n'; bloques separados por línea en blanco).
  */
 
 import { buildTree, decodeEntities } from './html.mjs';
@@ -88,9 +91,9 @@ function indent(text, pad) {
     .join('\n');
 }
 
-export function htmlToMarkdown(html, { baseUrl = '', rootRelativeOrigin = '' } = {}) {
+export function htmlToMarkdown(html, { baseUrl = '', rootRelativeOrigin = '', isBrokenLink = null, onBrokenLink = null } = {}) {
   const tree = buildTree(html);
-  const md = renderChildrenAsBlocks(tree, { baseUrl, rootRelativeOrigin });
+  const md = renderChildrenAsBlocks(tree, { baseUrl, rootRelativeOrigin, isBrokenLink, onBrokenLink });
   const out = md.replace(/\n{3,}/g, '\n\n').trim();
   return out ? `${out}\n` : '';
 }
@@ -142,6 +145,15 @@ function renderInline(node, ctx) {
         // casarlas con `images[].src` y reescribirlas a ../assets/ tras descargarlas.
         const href = resolveUrl(child.attrs.href, ctx.baseUrl, ctx.rootRelativeOrigin);
         const inner = renderInline(child, ctx).trim();
+        if (href && ctx.isBrokenLink) {
+          // H2-01: un enlace roto en el sitio viejo no se hereda; queda el texto del ancla.
+          const absolute = resolveUrl(child.attrs.href, ctx.baseUrl);
+          if (ctx.isBrokenLink(absolute)) {
+            ctx.onBrokenLink?.(absolute);
+            if (inner) parts.push(inner);
+            break;
+          }
+        }
         if (!href) parts.push(inner);
         else if (!inner) parts.push(`<${href}>`);
         else parts.push(`[${inner}](${href})`);

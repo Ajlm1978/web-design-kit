@@ -14,6 +14,8 @@
  *   - Dos orígenes al mismo destino sin `reason` = conflicto → exit 1.
  *   - Páginas del inventario sin entrada en el mapping → "sin cambios" (las verifica check-redirects contra dist/).
  *     Con --strict → exit 1 listándolas (salvo posts /blog/, --keep y rutas con targetPath en --brief).
+ *   - Claves del mapping que no están en inventory.pages: si están en inventory.skipped (robots, redirect…) el
+ *     redirect se emite igual y se anota; si no están en ninguno → aviso en stderr (no fatal).
  *   - --brief brief.json: aplica `pages[].targetPath` (posts fuera de /blog/ → 301 a /blog/<slug>/ sin tocar el mapping).
  *
  * Cero dependencias. Node ≥ 22. Exit 1 en error fatal, 0 en informativo.
@@ -148,6 +150,8 @@ function main() {
     for (const r of plan.redirects) console.log(`  ${r.status} ${r.from} → ${r.to ?? '(eliminada)'}  [${r.reason}]`);
     for (const f of files) console.log(`  escrito: ${f}`);
   }
+  for (const n of plan.notes ?? []) console.error(`  nota: ${n}`);
+  for (const w of plan.warnings ?? []) console.error(`  aviso: ${w}`);
   let failed = false;
   if (plan.conflicts.length) {
     failed = true;

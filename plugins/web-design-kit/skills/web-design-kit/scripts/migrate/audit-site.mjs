@@ -925,7 +925,7 @@ export function renderMarkdown(r) {
   if (!r.duplicates.length) {
     L.push('No hay páginas con contenido idéntico.');
   } else {
-    L.push(`${plural(r.duplicates.length, 'grupo', 'grupos')} de páginas con el mismo contenido principal. En la migración se conserva una URL por grupo y el resto redirige (301) a ella.`);
+    L.push(`${plural(r.duplicates.length, 'grupo', 'grupos')} de páginas con el mismo contenido principal. En la migración, de cada grupo se conserva una y las demás redirigen a ella (se decide en \`mapping.json\`).`);
     L.push('');
     for (const d of r.duplicates) {
       L.push(`- \`${d.contentHash.slice(0, 8)}\`: ${d.urls.map((u) => `\`${pathOf(u)}\``).join(' = ')}`);
@@ -976,7 +976,7 @@ export function renderMarkdown(r) {
   L.push('');
   L.push('- **Metadatos completos en el 100 % de las páginas**: título, descripción, canónica, H1 único, Open Graph y JSON-LD se generan desde la plantilla; los fallos de la tabla anterior desaparecen.');
   const errorTargets = Math.max(s.brokenTargets, s.errorPages);
-  if (errorTargets) L.push(`- **Cero enlaces rotos**: los ${errorTargets} destinos con error (${plural(s.broken, 'enlace', 'enlaces')} en el sitio) se redirigen (301) o se eliminan; \`check-redirects\` verifica que ninguna URL antigua quede huérfana.`);
+  if (errorTargets) L.push(`- **Cero enlaces rotos**: los ${errorTargets} destinos con error (${plural(s.broken, 'enlace', 'enlaces')} en el sitio) se redirigen (301) o se eliminan del contenido migrado (\`extract-content\` los convierte en texto); \`check-seo\` verifica que ningún enlace interno del sitio nuevo quede sin destino y \`check-redirects\` que ninguna URL antigua quede huérfana.`);
   else L.push('- **Paridad de URLs**: cada URL antigua termina en una página del nuevo sitio o en una redirección 301 verificada.');
   if (s.duplicates) L.push(`- **Sin duplicados**: ${s.duplicates === 1 ? '1 grupo se consolida' : `${s.duplicates} grupos se consolidan`} en una URL por grupo, con redirecciones.`);
   L.push('- **Imágenes optimizadas**: formatos modernos (AVIF/WebP), dimensiones declaradas y carga diferida salvo la imagen principal; sin saltos de maquetación.');

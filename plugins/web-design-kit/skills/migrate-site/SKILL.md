@@ -118,6 +118,11 @@ Comprueba:
    `src/content/blog/`, páginas a `src/content/pages/` + `src/pages/<slug>.astro`, imágenes a `src/assets/migrated/`,
    activa `showBlog` si hay posts y corre los gates del kit (check, build, Playwright+axe, check-seo, lhci, PLACEHOLDER).
    Los posts se copian de `$OUT/content/blog/*.md` a `src/content/blog/` **sin renombrar** (el nombre ya es el slug de la URL).
+   - Gate `check-seo`: el `--site` **debe ser igual a `SITE.url`** del sitio reconstruido (`src/config/site.ts`), y ese
+     a su vez el dominio de producción. Si `brief.domain` es `null` (rastreo por IP/localhost/staging), pide al
+     cliente el dominio de producción **antes** de correr `check-seo`; un `--site` distinto de `SITE.url` produce
+     decenas de falsos `canonical-site`/`sitemap-site`. Pásale también `--redirects $OUT/redirects.json` (tras la
+     fase 5) para que los enlaces internos hacia URLs antiguas redirigidas no cuenten como `link-broken`.
 3. Al volver, confirma que existe `dist/` del build final antes de la fase 5.
 
 ## Fase 5 — Redirects y paridad (gate bloqueante: 0 huérfanas)
@@ -173,7 +178,7 @@ se trunca) · sin contenido tras paywall · sin scraping de terceros sin autoriz
 - Páginas con confidence medium: <lista>
 
 ## Reconstrucción (gates del kit, con evidencia pegada)
-- astro check · build · Playwright+axe N/N · check-seo 0 err · lhci · PLACEHOLDER pendientes: <lista>
+- astro check · build · Playwright+axe N/N · check-seo 0 err (`--site` = `SITE.url` = dominio de producción) · lhci · PLACEHOLDER pendientes: <lista>
 
 ## Redirects y paridad
 - redirects.json N reglas (301 N · 410 N) · vercel.json / _redirects escritos · check-redirects: 0 huérfanas (exit 0)

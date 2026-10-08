@@ -229,6 +229,41 @@ describe('planRedirects', () => {
     const faq = plan.redirects.find((r) => r.from === '/faq/');
     assert.equal(faq.to, '/preguntas/');
   });
+
+  test('H2-02: clave del mapping en inventory.skipped (robots/redirect) → se honra el redirect y queda nota', () => {
+    // Como lo deja crawl-site: /privado/ bloqueada por robots vive en skipped, no en pages.
+    const inv = {
+      ...inventory,
+      pages: inventory.pages.filter((p) => pathOf(p.url) !== '/privado/'),
+      skipped: [
+        ...(inventory.skipped ?? []),
+        { url: 'http://localhost/privado/', reason: 'robots', rule: 'Disallow: /privado/' },
+        { url: 'http://localhost/viejo/', reason: 'redirect', status: 301, finalUrl: 'http://localhost/nosotros/' },
+      ],
+    };
+    const plan = planRedirects(inv, { '/privado/': null, '/viejo/': '/nosotros/' });
+    const privado = plan.redirects.find((r) => r.from === '/privado/');
+    assert.deepEqual(privado, { from: '/privado/', to: '/', status: 301, reason: REASON_PARENT });
+    const viejo = plan.redirects.find((r) => r.from === '/viejo/');
+    assert.deepEqual(viejo, { from: '/viejo/', to: '/nosotros/', status: 301, reason: REASON_SLUG });
+    assert.ok(Array.isArray(plan.notes) && plan.notes.length === 2, JSON.stringify(plan.notes));
+    assert.ok(plan.notes.some((n) => n.includes('/privado/') && /robots/.test(n)), JSON.stringify(plan.notes));
+    assert.deepEqual(plan.warnings, []);
+  });
+
+  test('H2-02: clave del mapping que no está ni en pages ni en skipped → aviso no fatal', () => {
+    const plan = planRedirects(inventory, { '/fantasma/': '/nosotros/' });
+    assert.equal(plan.redirects.length, 0);
+    assert.equal(plan.conflicts.length, 0);
+    assert.deepEqual(plan.notes, []);
+    assert.deepEqual(plan.warnings, ['Clave de mapping no encontrada en el inventario: /fantasma/']);
+  });
+
+  test('H2-02: el plan siempre devuelve notes[] y warnings[] (vacíos en el caso feliz)', () => {
+    const plan = planRedirects(inventory, identityMapping());
+    assert.deepEqual(plan.notes, []);
+    assert.deepEqual(plan.warnings, []);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -444,6 +479,25 @@ describe('CLI plan-redirects.mjs', () => {
     assert.equal(r.code, 0, r.stderr);
     const plan = JSON.parse(r.stdout);
     assert.deepEqual(plan.redirects, [{ from: '/blog/post-01/', to: '/blog/articulo-01/', status: 301, reason: REASON_SLUG }]);
+  });
+
+  test('H2-02: clave fuera del inventario → aviso en stderr, exit 0; clave en skipped → redirect emitido', async () => {
+    const dir = tmp();
+    const inv = {
+      ...inventory,
+      pages: inventory.pages.filter((p) => pathOf(p.url) !== '/privado/'),
+      skipped: [...(inventory.skipped ?? []), { url: 'http://localhost/privado/', reason: 'robots', rule: 'Disallow: /privado/' }],
+    };
+    const invFile = writeJson(dir, 'inventory.json', inv);
+    const mappingFile = writeJson(dir, 'mapping.json', { '/privado/': null, '/fantasma/': '/nosotros/' });
+    const r = await run(planScript, [invFile, mappingFile, '--out', dir]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /301 \/privado\/ → \//);
+    assert.match(r.stderr, /Clave de mapping no encontrada en el inventario: \/fantasma\//);
+    assert.match(r.stderr, /\/privado\/.*robots/);
+    const written = JSON.parse(readFileSync(join(dir, 'redirects.json'), 'utf8'));
+    assert.equal(written.length, 1);
+    assert.equal(written[0].from, '/privado/');
   });
 
   test('sin argumentos → exit 1', async () => {

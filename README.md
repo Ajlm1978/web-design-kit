@@ -16,7 +16,7 @@ castigan el rendimiento, accesibilidad WCAG 2.2 AA y deploy a coste cero.
 | Skill `seo-audit` | Auditoría SEO técnica de un `dist/` como checker independiente |
 | Skill `design-critique` | Crítica visual con rúbrica anti-slop de 10 puntos y capturas light/dark |
 | `scripts/tokens-to-theme.mjs` | Tokens DTCG 2025.10 (`tokens.json`, OKLCH, modos) → bloque `@theme` de Tailwind 4 |
-| `scripts/check-seo.mjs` | Valida títulos, descripciones, canónicas, OG, JSON-LD, imagen LCP, robots, sitemap, 404 |
+| `scripts/check-seo.mjs` | Valida títulos, descripciones, canónicas, OG, JSON-LD, imagen LCP, robots, sitemap, 404 y enlaces internos (`link-broken`; `--redirects` acepta orígenes redirigidos) |
 | `scripts/check-versions.mjs` | Detecta drift de versiones contra npm |
 | Skill `migrate-site` + `scripts/migrate/` | Migra un sitio existente (URL, carpeta/WXR o repo) sin perder URLs: autorización, `crawl-site`/`scan-source` → `inventory.json`, `audit-site` → auditoría vendible, `extract-content` → Markdown + `brief.json` con `confidence` por campo, `plan-redirects`/`check-redirects` → 301 con paridad contra `dist/`. Cero dependencias, 137 tests |
 | `assets/motion/` | Snippets listos: reveal CSS, view transitions, `@starting-style`, isla `motion` v14, GSAP scrollytelling, Lenis opt-in |

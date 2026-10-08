@@ -7,7 +7,7 @@
 
 import { test, describe, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, readdirSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import { dirname, join, resolve } from 'node:path';
@@ -253,6 +253,41 @@ describe('extract-content.mjs (wp-like)', () => {
     const home = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'index.md'), 'utf8')).body;
     assert.ok(home.includes('](https://example.org/)'));
     assert.ok(home.includes('](/precios/)'));
+  });
+
+  test('H2-01: los enlaces internos rotos del sitio viejo se convierten en texto plano y se avisa', () => {
+    const home = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'index.md'), 'utf8')).body;
+    assert.ok(!home.includes('/no-existe-1/'), `el enlace roto sigue en la home:\n${home}`);
+    assert.ok(home.includes('promoción caducada'), 'el texto del enlace se conserva');
+    const faq = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'faq.md'), 'utf8')).body;
+    assert.ok(!faq.includes('/no-existe-3/'));
+    assert.ok(faq.includes('listado de aseguradoras'));
+    const servicios = parseFrontmatter(readFileSync(join(out, 'content', 'pages', 'servicios.md'), 'utf8')).body;
+    assert.ok(!servicios.includes('/no-existe-2/'));
+    // Los enlaces válidos siguen siendo enlaces.
+    assert.ok(servicios.includes('](/precios/)') && servicios.includes('](/contacto/)'));
+    const removed = result.warnings.filter((w) => w.startsWith('Enlace roto eliminado: '));
+    assert.ok(removed.includes('Enlace roto eliminado: / → /no-existe-1/'), JSON.stringify(removed));
+    assert.ok(removed.includes('Enlace roto eliminado: /faq/ → /no-existe-3/'), JSON.stringify(removed));
+    assert.ok(removed.includes('Enlace roto eliminado: /servicios/ → /no-existe-2/'), JSON.stringify(removed));
+  });
+
+  test('H2-01: con inventario de URL, una página con status ≥ 400 también cuenta como destino roto', async () => {
+    const invDir2 = tmp('wdk-extract-inv-url-');
+    const inv = {
+      ...inventory,
+      source: { ...inventory.source, kind: 'url', origin: 'http://localhost', root: null },
+      pages: [...inventory.pages, { url: 'http://localhost/no-existe-1/', status: 404, finalUrl: 'http://localhost/no-existe-1/', links: [], rawFile: null }],
+    };
+    cpSync(join(invDir, 'raw'), join(invDir2, 'raw'), { recursive: true }); // mismo raw/ que la carpeta escaneada
+    const out2 = tmp();
+    const r = await extract(inv, { out: out2, inventoryDir: invDir2, sourceRoot: wpLike });
+    const home = parseFrontmatter(readFileSync(join(out2, 'content', 'pages', 'index.md'), 'utf8')).body;
+    assert.ok(!home.includes('/no-existe-1/'));
+    assert.ok(r.warnings.includes('Enlace roto eliminado: / → /no-existe-1/'), JSON.stringify(r.warnings));
+    // /no-existe-2/ no está en pages ni en skipped y el inventario es de URL → "no rastreado", no roto: se conserva.
+    const servicios = parseFrontmatter(readFileSync(join(out2, 'content', 'pages', 'servicios.md'), 'utf8')).body;
+    assert.ok(servicios.includes('](/no-existe-2/)'), servicios);
   });
 
   test('posts: type post con date, author y tags', () => {

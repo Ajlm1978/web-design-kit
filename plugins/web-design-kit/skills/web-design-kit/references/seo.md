@@ -199,7 +199,7 @@ Medición: Search Console → informe **"Rendimiento en IA generativa"**
 
 Pre-deploy (automatizable):
 - [ ] `SITE.url`, `SITE.name`, `SITE.description`, `robots.txt` `Sitemap:` sin `example.com`/`PLACEHOLDER`.
-- [ ] `npm run build` + `node scripts/check-seo.mjs dist --site https://dominio.com` → 0 errores.
+- [ ] `npm run build` + `node scripts/check-seo.mjs dist --site https://dominio.com` → 0 errores (`--site` igual a `SITE.url`; incluye `link-broken`: enlaces internos sin destino en `dist/`; en migraciones `--redirects redirects.json`).
 - [ ] `npx lhci autorun` (o `npx lighthouse <url>`): SEO 100, A11y 100, Perf ≥ 90.
 - [ ] Rich Results Test sin errores en portada y una página de cada tipo.
 - [ ] OG image PNG/JPG real; probar con `opengraph.xyz` o el debugger de LinkedIn.

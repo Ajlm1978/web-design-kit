@@ -165,23 +165,32 @@ function rebaseToOrigin(loc, origin) {
 /**
  * @param {string} xml
  * @param {string} origin
- * @returns {{kind: 'urlset'|'sitemapindex', urls: string[]}}
+ * @returns {{kind: 'urlset'|'sitemapindex', urls: string[], otherHosts: string[]}}
+ *   `otherHosts`: hosts (únicos) de los `<loc>` descartados por no coincidir con el origen del rastreo.
  */
 export function parseSitemap(xml, origin) {
   const src = String(xml ?? '');
   const kind = /<sitemapindex[\s>]/i.test(src) ? 'sitemapindex' : 'urlset';
   const urls = [];
   const seen = new Set();
+  const otherHosts = new Set();
   const re = /<loc>\s*(?:<!\[CDATA\[)?\s*([^<\]]+?)\s*(?:\]\]>)?\s*<\/loc>/gi;
   let m;
   while ((m = re.exec(src)) !== null) {
-    const u = rebaseToOrigin(m[1].replace(/&amp;/g, '&'), origin);
+    const loc = m[1].replace(/&amp;/g, '&');
+    const u = rebaseToOrigin(loc, origin);
     if (u && !seen.has(u)) {
       seen.add(u);
       urls.push(u);
+    } else if (!u) {
+      try {
+        otherHosts.add(new URL(loc.trim()).host);
+      } catch {
+        /* <loc> ilegible */
+      }
     }
   }
-  return { kind, urls };
+  return { kind, urls, otherHosts: [...otherHosts] };
 }
 
 // ---------------------------------------------------------------------------
@@ -330,6 +339,15 @@ export async function crawl(startUrl, opts = {}) {
       if (parsed.kind === 'sitemapindex') sitemapQueue.push(...parsed.urls);
       else for (const u of parsed.urls) enqueue(u);
       log(`sitemap ${sm}: ${parsed.urls.length} ${parsed.kind === 'sitemapindex' ? 'sitemaps' : 'URLs'}`);
+      if (parsed.urls.length === 0 && parsed.otherHosts.length) {
+        // H2-03: el sitemap existe pero todas sus URL son de otro host (IP vs dominio, alias, staging).
+        const locCount = (r.body.match(/<loc>/gi) ?? []).length;
+        const msg =
+          `sitemap ${sm}: ${locCount} URL de otro host (${parsed.otherHosts.join(', ')}) y ninguna del origen rastreado (${start.host}); ` +
+          `se ignoró. Si es el mismo sitio, rastrea con el host del sitemap: ${new URL(origin).protocol}//${parsed.otherHosts[0]}/`;
+        inv.warnings.push(msg);
+        warn(msg);
+      }
     } catch (err) {
       log(`sitemap ${sm} no disponible (${err.message})`);
     }
@@ -520,6 +538,7 @@ async function main(argv) {
           `Inventario escrito en ${join(resolve(values.out), 'inventory.json')}`,
           `Páginas: ${inv.pages.length} (${broken} con error HTTP) · peticiones: ${inv.stats.fetched} · errores de red: ${inv.stats.errors} · ${inv.stats.durationMs} ms`,
           `Omitidas: ${inv.skipped.length}${inv.skipped.length ? ` (${Object.entries(byReason).map(([k, v]) => `${k}: ${v}`).join(', ')})` : ''}`,
+          `Avisos: ${inv.warnings.length}`,
         ].join('\n') + '\n',
       );
     }

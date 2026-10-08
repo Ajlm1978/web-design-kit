@@ -1,0 +1,149 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Ajlm1978/web-design-kit/plugins/web-design-kit/skills/web-design-kit/assets/brief.schema.json",
+  "title": "web-design-kit brief v1",
+  "description": "Brief de sitio producido por extract-content.mjs (migración) y consumido por /new-website --from. Nada inferido sin entrada en `sources`; lo no encontrado es null. Validado en Node por scripts/migrate/lib/brief.mjs (mismas reglas, sin dependencias).",
+  "type": "object",
+  "required": ["version", "name", "type", "language", "locale", "contact", "sources"],
+  "additionalProperties": false,
+  "properties": {
+    "version": { "const": 1 },
+    "name": { "type": "string", "minLength": 1, "description": "Nombre del negocio/sitio." },
+    "type": {
+      "type": "string",
+      "enum": ["local", "corporativo", "landing", "portfolio", "ecommerce", "blog", "saas"]
+    },
+    "language": { "type": "string", "pattern": "^[a-zA-Z]{2,3}$", "description": "ISO 639-1, p. ej. es." },
+    "locale": { "type": "string", "pattern": "^[a-z]{2,3}_[A-Z]{2}$", "description": "ll_CC, p. ej. es_US." },
+    "adjectives": { "type": "array", "items": { "type": "string" } },
+    "pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["sourceUrl", "slug", "type"],
+        "additionalProperties": false,
+        "properties": {
+          "sourceUrl": { "type": "string" },
+          "title": { "type": ["string", "null"] },
+          "slug": { "type": "string" },
+          "type": { "type": "string", "enum": ["page", "post"] }
+        }
+      }
+    },
+    "contact": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "phone": { "type": ["string", "null"] },
+        "email": { "type": ["string", "null"] },
+        "address": {
+          "oneOf": [
+            { "type": "null" },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "streetAddress": { "type": ["string", "null"] },
+                "addressLocality": { "type": ["string", "null"] },
+                "addressRegion": { "type": ["string", "null"] },
+                "postalCode": { "type": ["string", "null"] },
+                "addressCountry": { "type": ["string", "null"] }
+              }
+            }
+          ]
+        },
+        "openingHours": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Formato schema.org, p. ej. \"Mo-Fr 09:00-17:00\"."
+        }
+      }
+    },
+    "social": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "instagram": { "type": ["string", "null"] },
+        "facebook": { "type": ["string", "null"] },
+        "linkedin": { "type": ["string", "null"] },
+        "x": { "type": ["string", "null"] },
+        "youtube": { "type": ["string", "null"] },
+        "tiktok": { "type": ["string", "null"] }
+      }
+    },
+    "domain": { "type": ["string", "null"] },
+    "hosting": { "type": ["string", "null"] },
+    "aiPolicy": { "type": ["string", "null"] },
+    "brand": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "logo": { "type": ["string", "null"], "description": "URL o ruta del logo." },
+        "colors": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["hex", "oklch"],
+            "additionalProperties": false,
+            "properties": {
+              "hex": { "type": "string", "pattern": "^#[0-9a-f]{6}$" },
+              "oklch": { "type": "string", "pattern": "^oklch\\(" },
+              "role": { "type": ["string", "null"], "description": "primary | accent | …" }
+            }
+          }
+        },
+        "fonts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["family", "role"],
+            "additionalProperties": false,
+            "properties": {
+              "family": { "type": "string" },
+              "role": { "type": "string", "enum": ["display", "body"] },
+              "fontsource": {
+                "type": ["string", "null"],
+                "description": "Paquete npm (@fontsource-variable/<slug> o @fontsource/<slug>) o null si la familia no es conocida."
+              }
+            }
+          }
+        }
+      }
+    },
+    "services": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["title"],
+        "additionalProperties": false,
+        "properties": {
+          "title": { "type": "string" },
+          "summary": { "type": ["string", "null"] },
+          "sourceUrl": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "migration": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inventoryCount": { "type": "integer", "minimum": 0 },
+        "posts": { "type": "integer", "minimum": 0 },
+        "redirectsPlanned": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "sources": {
+      "type": "object",
+      "description": "Procedencia de cada campo inferido, por ruta con puntos (name, contact.phone, brand.colors[0]…).",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["from", "confidence"],
+        "additionalProperties": false,
+        "properties": {
+          "from": { "type": "string", "description": "URL o archivo de origen." },
+          "confidence": { "type": "string", "enum": ["high", "medium", "low"] }
+        }
+      }
+    }
+  }
+}

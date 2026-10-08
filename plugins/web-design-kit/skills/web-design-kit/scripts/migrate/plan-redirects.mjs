@@ -4,7 +4,7 @@
  *
  * Uso:
  *   node plan-redirects.mjs <inventory.json> <mapping.json> --out <dir> [--vercel <vercel.json>] [--public <dir>]
- *                           [--keep <ruta,ruta>] [--json] [--help]
+ *                           [--brief <brief.json>] [--keep <ruta,ruta>] [--strict] [--json] [--help]
  *
  * Escribe <out>/redirects.json `[{from, to, status, reason}]`. Con --vercel fusiona el bloque `redirects`
  * en ese vercel.json (sin tocar headers ni trailingSlash). Con --public escribe <public>/_redirects (Cloudflare).
@@ -12,7 +12,9 @@
  * mapping.json lo escribe el agente: `{ "/old/": "/new/" | null | {to, reason, status} }`
  *   - misma ruta → sin redirect · slug cambiado → 301 · null → 301 al padre más cercano · {status:410} → eliminada.
  *   - Dos orígenes al mismo destino sin `reason` = conflicto → exit 1.
- *   - Páginas del inventario sin entrada en el mapping (salvo posts /blog/ y --keep) → exit 1.
+ *   - Páginas del inventario sin entrada en el mapping → "sin cambios" (las verifica check-redirects contra dist/).
+ *     Con --strict → exit 1 listándolas (salvo posts /blog/, --keep y rutas con targetPath en --brief).
+ *   - --brief brief.json: aplica `pages[].targetPath` (posts fuera de /blog/ → 301 a /blog/<slug>/ sin tocar el mapping).
  *
  * Cero dependencias. Node ≥ 22. Exit 1 en error fatal, 0 en informativo.
  */
@@ -26,23 +28,26 @@ import { planRedirects, mergeVercelRedirects, toCloudflareRedirects } from './li
 const HELP = `plan-redirects.mjs — plan de redirects 301 (sitio antiguo → nuevo)
 
 Uso:
-  node plan-redirects.mjs <inventory.json> <mapping.json> --out <dir> [--vercel <vercel.json>] [--public <dir>] [--keep <rutas>] [--json]
+  node plan-redirects.mjs <inventory.json> <mapping.json> --out <dir> [--vercel <vercel.json>] [--public <dir>] [--brief <brief.json>] [--keep <rutas>] [--strict] [--json]
 
 Opciones:
   --out <dir>           Carpeta de salida (redirects.json). Obligatoria.
   --vercel <archivo>    Fusiona el bloque "redirects" en ese vercel.json (conserva headers y trailingSlash).
   --public <dir>        Escribe <dir>/_redirects en formato Cloudflare/Netlify.
-  --keep <rutas>        Rutas separadas por coma que el sitio nuevo conserva aunque falten en el mapping.
+  --brief <archivo>     brief.json de extract-content: aplica pages[].targetPath (posts fuera de /blog/ → 301 automático).
+  --keep <rutas>        Rutas separadas por coma que el sitio nuevo conserva (solo cuenta con --strict).
+  --strict              Las rutas del inventario sin mapping ni targetPath ni --keep (salvo posts) son error (exit 1).
   --json                Imprime el plan completo en stdout.
   --help                Esta ayuda.
 
 mapping.json: { "/old/": "/new/" | null | { "to": "/new/", "reason": "fusionadas", "status": 301 } }
   null = página descartada → 301 al padre más cercano. Dos orígenes al mismo destino sin reason = conflicto (exit 1).
+  Las rutas que no cambian no hace falta listarlas: check-redirects comprueba que existan en dist/.
 Windows + Git Bash: pasa rutas sin barra inicial o usa MSYS_NO_PATHCONV=1.
 `;
 
 function parseArgs(argv) {
-  const opts = { inventory: null, mapping: null, out: null, vercel: null, public: null, keep: [], json: false, help: false };
+  const opts = { inventory: null, mapping: null, out: null, vercel: null, public: null, brief: null, keep: [], strict: false, json: false, help: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--help' || a === '-h') opts.help = true;
@@ -53,6 +58,9 @@ function parseArgs(argv) {
     else if (a.startsWith('--vercel=')) opts.vercel = a.slice(9);
     else if (a === '--public') opts.public = argv[++i];
     else if (a.startsWith('--public=')) opts.public = a.slice(9);
+    else if (a === '--strict') opts.strict = true;
+    else if (a === '--brief') opts.brief = argv[++i];
+    else if (a.startsWith('--brief=')) opts.brief = a.slice(8);
     else if (a === '--keep') opts.keep = String(argv[++i] ?? '').split(',').filter(Boolean);
     else if (a.startsWith('--keep=')) opts.keep = a.slice(7).split(',').filter(Boolean);
     else if (a.startsWith('--')) throw new Error(`Opción desconocida: ${a}`);
@@ -74,12 +82,14 @@ function readJson(file, label) {
 
 /**
  * Ejecuta el plan y escribe las salidas. Devuelve `{plan, files}`.
- * @param {{inventory: string, mapping: string, out: string, vercel?: string|null, public?: string|null, keep?: string[]}} opts
+ * @param {{inventory: string, mapping: string, out: string, vercel?: string|null, public?: string|null, brief?: string|null,
+ *          keep?: string[], strict?: boolean}} opts
  */
 export function runPlan(opts) {
   const inventory = readJson(opts.inventory, 'inventory.json');
   const mapping = readJson(opts.mapping, 'mapping.json');
-  const plan = planRedirects(inventory, mapping, { keep: opts.keep ?? [] });
+  const brief = opts.brief ? readJson(opts.brief, 'brief.json') : null;
+  const plan = planRedirects(inventory, mapping, { keep: opts.keep ?? [], strict: Boolean(opts.strict), pages: brief?.pages ?? [] });
   const files = [];
 
   mkdirSync(opts.out, { recursive: true });
@@ -147,7 +157,7 @@ function main() {
   }
   if (plan.missing.length) {
     failed = true;
-    console.error(`\nPáginas sin mapping (${plan.missing.length}): añade cada ruta a mapping.json (destino, null o --keep):`);
+    console.error(`\nPáginas sin mapping (${plan.missing.length}, --strict): añade cada ruta a mapping.json (destino, null o --keep):`);
     for (const p of plan.missing) console.error(`  ${p}`);
   }
   process.exit(failed ? 1 : 0);

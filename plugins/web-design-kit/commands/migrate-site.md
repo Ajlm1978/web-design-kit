@@ -36,7 +36,8 @@ Variables: `M="${CLAUDE_PLUGIN_ROOT}/skills/web-design-kit/scripts/migrate"` · 
    `/web-design-kit:new-website --from $OUT/brief.json` (sección 0-bis). Sus gates (check, build, Playwright+axe,
    check-seo, lhci, PLACEHOLDER) deben quedar verdes y debe existir `dist/` final.
 5. **Redirects y paridad.**
-   `node "$M/plan-redirects.mjs" "$OUT/inventory.json" "$OUT/mapping.json" --out "$OUT" --vercel vercel.json --public public`
+   `node "$M/plan-redirects.mjs" "$OUT/inventory.json" "$OUT/mapping.json" --out "$OUT" --brief "$OUT/brief.json" --vercel vercel.json --public public`
+   (las rutas que no cambian no se listan en `mapping.json`; los posts conservan su URL)
    → `node "$M/check-redirects.mjs" "$OUT/inventory.json" dist --redirects "$OUT/redirects.json"`.
    exit 1 (huérfanas, bucles, conflictos) → corrige `mapping.json`, repite 5 (y el build si cambiaron rutas).
    **Sin exit 0 no hay entrega.**

@@ -10,6 +10,8 @@
  * Reporta huérfanas, bucles y conflictos (dos orígenes → mismo destino final sin `reason`). Exit 1 si hay alguno.
  *
  * --redirects acepta redirects.json (`[{from,to,status,reason}]`) o un vercel.json (se lee su bloque `redirects`).
+ * vercel.json no guarda `reason`, así que con esa entrada NO se evalúan conflictos (solo huérfanas y bucles); el gate
+ * completo es con redirects.json.
  *
  * Cero dependencias. Node ≥ 22. Exit 1 en error fatal, 0 en informativo.
  */
@@ -26,7 +28,8 @@ Uso:
   node check-redirects.mjs <inventory.json> <dist> [--redirects <redirects.json|vercel.json>] [--json]
 
 Opciones:
-  --redirects <archivo>  redirects.json generado por plan-redirects.mjs (o un vercel.json con bloque "redirects").
+  --redirects <archivo>  redirects.json generado por plan-redirects.mjs (gate completo) o un vercel.json con bloque
+                         "redirects" (sin "reason": se comprueban huérfanas y bucles, no conflictos).
   --json                 Imprime el informe completo en stdout.
   --help                 Esta ayuda.
 
@@ -60,16 +63,21 @@ function readJson(file, label) {
   }
 }
 
-/** Acepta redirects.json (array) o vercel.json (`redirects: [{source, destination, permanent}]`). */
+/**
+ * Acepta redirects.json (array) o vercel.json (`redirects: [{source, destination, permanent}]`).
+ * @returns {{list: object[], format: 'plan'|'vercel', hasReasons: boolean}} `hasReasons` es false para vercel.json
+ *   (no guarda `reason`), y entonces check-redirects no evalúa conflictos.
+ */
 export function loadRedirects(file) {
   const data = readJson(file, 'redirects');
-  if (Array.isArray(data)) return data;
+  if (Array.isArray(data)) return { list: data, format: 'plan', hasReasons: true };
   if (data && Array.isArray(data.redirects)) {
-    return data.redirects.map((r) =>
+    const list = data.redirects.map((r) =>
       'source' in r
         ? { from: r.source, to: r.destination, status: r.permanent === false ? 302 : 301, reason: r.reason }
         : r,
     );
+    return { list, format: 'vercel', hasReasons: false };
   }
   throw new Error(`Formato de redirects no reconocido: ${file}`);
 }
@@ -98,8 +106,9 @@ function main() {
     if (!existsSync(opts.dist) || !statSync(opts.dist).isDirectory()) {
       throw new Error(`dist no es una carpeta: ${opts.dist} (¿ejecutaste el build?)`);
     }
-    const redirects = opts.redirects ? loadRedirects(opts.redirects) : [];
-    report = checkRedirects(inventory, opts.dist, redirects);
+    const loaded = opts.redirects ? loadRedirects(opts.redirects) : { list: [], format: 'plan', hasReasons: true };
+    report = checkRedirects(inventory, opts.dist, loaded.list, { conflicts: loaded.hasReasons });
+    report.redirectsFormat = loaded.format;
   } catch (err) {
     console.error(`Error: ${err.message}`);
     process.exit(1);
@@ -108,8 +117,9 @@ function main() {
   if (opts.json) {
     console.log(JSON.stringify(report, null, 2));
   } else {
+    const conflictsLabel = report.conflictsChecked ? `${report.conflicts.length} conflictos` : 'conflictos: no evaluados (vercel.json sin "reason"; usa redirects.json para el gate completo)';
     console.log(
-      `Paridad: ${report.checked} URLs antiguas · ${report.redirected} redirigidas · ${report.gone} eliminadas (410) · ${report.orphans.length} huérfanas · ${report.loops.length} bucles · ${report.conflicts.length} conflictos`,
+      `Paridad: ${report.checked} URLs antiguas · ${report.redirected} redirigidas · ${report.gone} eliminadas (410) · ${report.orphans.length} huérfanas · ${report.loops.length} bucles · ${conflictsLabel}`,
     );
   }
   if (report.orphans.length) {

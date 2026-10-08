@@ -173,14 +173,45 @@ describe('planRedirects', () => {
     assert.equal(plan2.redirects[0].reason, 'fusionadas');
   });
 
-  test('página ausente del mapping y no conservada → missing; con keep → unchanged', () => {
+  test('H-03: página ausente del mapping → sin cambios por defecto; con strict → missing; con keep → unchanged', () => {
     const mapping = identityMapping();
     delete mapping['/legal/'];
     const plan = planRedirects(inventory, mapping);
-    assert.deepEqual(plan.missing, ['/legal/']);
-    const plan2 = planRedirects(inventory, mapping, { keep: ['/legal/'] });
+    assert.deepEqual(plan.missing, []);
+    assert.ok(plan.unchanged.includes('/legal/'));
+    const strict = planRedirects(inventory, mapping, { strict: true });
+    assert.deepEqual(strict.missing, ['/legal/']);
+    assert.ok(!strict.unchanged.includes('/legal/'));
+    const plan2 = planRedirects(inventory, mapping, { strict: true, keep: ['/legal/'] });
     assert.equal(plan2.missing.length, 0);
     assert.ok(plan2.unchanged.includes('/legal/'));
+  });
+
+  test('H-03: mapping solo con los cambios (camino feliz de la skill) → 0 missing y las demás sin cambios', () => {
+    const plan = planRedirects(inventory, { '/faq/': '/preguntas/', '/duplicada/': null });
+    assert.equal(plan.missing.length, 0);
+    assert.equal(plan.redirects.length, 2);
+    assert.equal(plan.unchanged.length, 49);
+    assert.ok(plan.unchanged.includes('/') && plan.unchanged.includes('/blog/post-30/'));
+  });
+
+  test('H-01: con `pages` del brief, un post cuyo targetPath cambia recibe 301 automático; el resto no', () => {
+    const pages = [
+      { sourceUrl: 'http://localhost/blog/post-01/', path: '/blog/post-01/', targetPath: '/blog/post-01/', type: 'post' },
+      { sourceUrl: 'http://localhost/2024/02/post-02/', path: '/2024/02/post-02/', targetPath: '/blog/post-02/', type: 'post' },
+    ];
+    const inv = { ...inventory, pages: [...inventory.pages, { url: 'http://localhost/2024/02/post-02/', status: 200 }] };
+    const plan = planRedirects(inv, {}, { pages });
+    assert.equal(plan.missing.length, 0);
+    assert.deepEqual(plan.redirects, [{ from: '/2024/02/post-02/', to: '/blog/post-02/', status: 301, reason: REASON_SLUG }]);
+    assert.ok(plan.unchanged.includes('/blog/post-01/'));
+    // El mapping del agente manda sobre el targetPath del brief.
+    const plan2 = planRedirects(inv, { '/2024/02/post-02/': null }, { pages });
+    assert.equal(plan2.redirects.find((r) => r.from === '/2024/02/post-02/').reason, REASON_PARENT);
+    // En strict, una página con targetPath en el brief no cuenta como missing.
+    const strict = planRedirects(inv, {}, { pages, strict: true });
+    assert.ok(!strict.missing.includes('/2024/02/post-02/') && !strict.missing.includes('/blog/post-01/'));
+    assert.ok(strict.missing.includes('/contacto/'));
   });
 
   test('status 410 explícito: {to:null, status:410} se registra sin destino', () => {
@@ -266,6 +297,18 @@ describe('checkRedirects', () => {
     const r2 = checkRedirects(inventory, dist, withReason);
     assert.equal(r2.conflicts.length, 0);
     assert.equal(r2.ok, true);
+  });
+
+  test('H-04: con conflicts:false no se evalúan conflictos (entrada vercel.json sin reason)', () => {
+    const dist = makeDist(allPaths());
+    const redirects = [
+      { from: '/precios/', to: '/servicios/', status: 301 },
+      { from: '/galeria/', to: '/servicios/', status: 301 },
+    ];
+    const r = checkRedirects(inventory, dist, redirects, { conflicts: false });
+    assert.equal(r.conflicts.length, 0);
+    assert.equal(r.ok, true);
+    assert.equal(r.redirected, 2);
   });
 
   test('410 es terminal: no exige archivo en dist', () => {
@@ -378,15 +421,29 @@ describe('CLI plan-redirects.mjs', () => {
     assert.match(r.stderr, /\/servicios\//);
   });
 
-  test('página sin mapping → exit 1 listando las faltantes', async () => {
+  test('H-03: página sin mapping → exit 0 (sin cambios); con --strict → exit 1 listando las faltantes', async () => {
     const dir = tmp();
     const m = identityMapping();
     delete m['/legal/'];
     const mappingFile = writeJson(dir, 'mapping.json', m);
     const r = await run(planScript, [inventoryFile, mappingFile, '--out', dir]);
-    assert.equal(r.code, 1);
-    assert.match(r.stderr, /sin mapping/i);
-    assert.match(r.stderr, /\/legal\//);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /0 sin mapping/);
+    const r2 = await run(planScript, [inventoryFile, mappingFile, '--out', dir, '--strict']);
+    assert.equal(r2.code, 1);
+    assert.match(r2.stderr, /sin mapping/i);
+    assert.match(r2.stderr, /\/legal\//);
+  });
+
+  test('H-01: --brief aplica targetPath de los posts', async () => {
+    const dir = tmp();
+    const brief = { pages: [{ sourceUrl: 'http://localhost/blog/post-01/', path: '/blog/post-01/', targetPath: '/blog/articulo-01/', type: 'post' }] };
+    const briefFile = writeJson(dir, 'brief.json', brief);
+    const mappingFile = writeJson(dir, 'mapping.json', {});
+    const r = await run(planScript, [inventoryFile, mappingFile, '--out', dir, '--brief', briefFile, '--json']);
+    assert.equal(r.code, 0, r.stderr);
+    const plan = JSON.parse(r.stdout);
+    assert.deepEqual(plan.redirects, [{ from: '/blog/post-01/', to: '/blog/articulo-01/', status: 301, reason: REASON_SLUG }]);
   });
 
   test('sin argumentos → exit 1', async () => {
@@ -452,6 +509,22 @@ describe('CLI check-redirects.mjs', () => {
     const r = await run(checkScript, [inventoryFile, dist, '--redirects', redirectsFile]);
     assert.equal(r.code, 1);
     assert.match(r.stderr, /conflicto/i);
+  });
+
+  test('H-04: --redirects vercel.json (sin reason) no da falso conflicto; el mismo plan en redirects.json sí', async () => {
+    const dir = tmp();
+    const plan = planRedirects(inventory, { '/precios/': '/servicios/', '/galeria/': '/servicios/' });
+    assert.equal(plan.conflicts.length, 1, 'el plan sí detecta el conflicto en origen');
+    const vercel = mergeVercelRedirects({ trailingSlash: true }, plan.redirects);
+    const vercelFile = writeJson(dir, 'vercel.json', vercel);
+    const dist = makeDist(allPaths().filter((p) => p !== '/precios/' && p !== '/galeria/'));
+    const r = await run(checkScript, [inventoryFile, dist, '--redirects', vercelFile]);
+    assert.equal(r.code, 0, r.stderr);
+    assert.match(r.stdout, /conflictos: no evaluados/);
+    const redirectsFile = writeJson(dir, 'redirects.json', plan.redirects);
+    const r2 = await run(checkScript, [inventoryFile, dist, '--redirects', redirectsFile]);
+    assert.equal(r2.code, 1);
+    assert.match(r2.stderr, /conflicto/i);
   });
 
   test('dist inexistente → exit 1', async () => {

@@ -43,7 +43,8 @@ Antes de tocar la red o el disco pregunta, literalmente:
 
 ```bash
 # URL pública (respeta robots.txt, 2 req/s, timeout 15 s, mismo origen, máx. 300 páginas)
-node "$M/crawl-site.mjs" https://sitio-viejo.com --out "$OUT" [--max-pages 300] [--render]
+node "$M/crawl-site.mjs" https://sitio-viejo.com --out "$OUT" [--max-pages 300] [--render] [--delay-ms 500] [--timeout-ms 15000]
+#   --delay-ms 0 solo contra un fixture/servidor local propio (CI); --timeout-ms más alto para hosts lentos.
 # Carpeta, export WXR o repo (owner/repo · URL https · git@); nunca copia .env*, *.pem, *.key, id_rsa*
 node "$M/scan-source.mjs" <ruta|export.xml|owner/repo> --out "$OUT" [--build] [--base-url https://sitio-viejo.com]
 ```
@@ -103,8 +104,13 @@ Comprueba:
    - `"/old/": "/new/"` → se conserva con slug nuevo (301).
    - `"/old/": null` → se descarta → `plan-redirects` emite 301 al padre más cercano.
    - `"/a/": { "to": "/b/", "reason": "fusionadas", "status": 301 }` → fusión explícita (el `reason` evita el conflicto).
-   - Rutas que no cambian **no se listan**. Los **posts** no se listan: por defecto todos migran a `/blog/<slug>/`
-     (misma ruta si ya era `/blog/<slug>/`); solo añádelos si el cliente cambia o descarta alguno.
+   - Rutas que no cambian **no se listan**: `plan-redirects` las trata como "sin cambios" y es `check-redirects`
+     quien comprueba que existan en `dist/` (si quieres que una ruta olvidada sea error ya en el plan, usa `--strict`
+     con `--keep` para las que se conservan). Los **posts** tampoco se listan: por defecto conservan su ruta
+     (`brief.pages[].targetPath`; un post fuera de `/blog/` pasa a `/blog/<slug>/` y `plan-redirects --brief` emite
+     su 301 solo); solo añádelos si el cliente cambia o descarta alguno.
+   - Archivos de taxonomía del CMS (`/tag/<x>/`, `/author/<x>/`) sí hay que decidirlos: `null` (→ padre) o
+     `{ "to": "/blog/", "reason": "archivo de etiquetas" }`; si no, `check-redirects` los dará como huérfanos.
    - Para `410` usa `{ "to": null, "status": 410, "reason": "…" }` solo si el cliente lo pide por escrito.
 2. Hand-off: **`/web-design-kit:new-website --from $OUT/brief.json`** (sección 0-bis del comando). Esa fase
    valida el brief, confirma lo `medium/low/null` en una sola ronda, pregunta dirección de diseño (default:
@@ -117,13 +123,16 @@ Comprueba:
 ## Fase 5 — Redirects y paridad (gate bloqueante: 0 huérfanas)
 
 ```bash
-node "$M/plan-redirects.mjs" "$OUT/inventory.json" "$OUT/mapping.json" --out "$OUT" --vercel vercel.json --public public [--keep /ruta-nueva/,/otra/]
+node "$M/plan-redirects.mjs" "$OUT/inventory.json" "$OUT/mapping.json" --out "$OUT" --brief "$OUT/brief.json" --vercel vercel.json --public public [--strict --keep /ruta/,/otra/]
 node "$M/check-redirects.mjs" "$OUT/inventory.json" dist --redirects "$OUT/redirects.json"
 ```
 - `plan-redirects` escribe `$OUT/redirects.json` `[{from,to,status,reason}]`, fusiona el bloque `redirects` en
   `vercel.json` (conserva `headers` y `trailingSlash`) y escribe `public/_redirects` (Cloudflare/Netlify).
   Los 410 se registran en `redirects.json` pero **no** van a `vercel.json`/`_redirects`. Exit 1 si dos orígenes
-  apuntan al mismo destino sin `reason` → resuelve en `mapping.json`, no borrando la línea.
+  apuntan al mismo destino sin `reason` → resuelve en `mapping.json`, no borrando la línea. Las rutas sin mapping
+  cuentan como "sin cambios" (exit 0); con `--strict` son error.
+- `check-redirects` con `--redirects "$OUT/redirects.json"` es el gate completo. Si le pasas `vercel.json`, solo
+  comprueba huérfanas y bucles (ese archivo no guarda `reason`, así que no puede evaluar conflictos y lo dice).
 - `check-redirects` resuelve cada URL antigua (máx. 5 saltos) contra `dist/` + reglas: **exit 1 = no se entrega**
   (huérfanas, bucles o conflictos). Corrige `mapping.json`, vuelve a `plan-redirects`, `npm run build` si tocaste
   rutas, y repite hasta exit 0. Con `--json` tienes la lista exacta de huérfanas.

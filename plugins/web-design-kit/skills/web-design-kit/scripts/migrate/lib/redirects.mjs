@@ -5,8 +5,13 @@
  *
  * - pathOf(urlOrPath) → ruta normalizada (`/x/` con barra final si no tiene extensión).
  * - planRedirects(inventory, mapping, opts) → {redirects, unchanged, conflicts, missing}.
+ *     opts.pages: `brief.pages[]` (path/targetPath): un post cuyo targetPath ≠ path recibe 301 automático.
+ *     opts.strict: las rutas sin mapping ni targetPath ni --keep son `missing` (por defecto se tratan como
+ *     "sin cambios" y es check-redirects quien las verifica contra dist/).
  * - resolveChain(path, redirects, maxHops) → {to, status, hops, chain, loop}.
  * - checkRedirects(inventory, dist, redirects, opts) → {ok, checked, redirected, gone, orphans, loops, conflicts}.
+ *     opts.conflicts=false omite la detección de conflictos (p. ej. cuando los redirects vienen de un vercel.json,
+ *     que no guarda `reason`); el informe lo indica con `conflictsChecked: false`.
  * - mergeVercelRedirects(vercelJson, redirects) → nuevo objeto vercel.json con bloque `redirects` fusionado.
  * - toCloudflareRedirects(redirects) → texto `_redirects` (`from to 301` por línea).
  *
@@ -97,11 +102,15 @@ export function inventoryPaths(inventory) {
  * Planifica redirects a partir del inventario y del mapping del agente.
  * @param {object} inventory inventory.json
  * @param {Record<string, string|null|{to?: string|null, reason?: string, status?: number}>} mapping
- * @param {{defaultParent?: string, keep?: string[], postPattern?: RegExp}} [opts]
+ * @param {{defaultParent?: string, keep?: string[], postPattern?: RegExp, strict?: boolean,
+ *          pages?: {path?: string, sourceUrl?: string, targetPath?: string}[]}} [opts]
+ *   - `pages`: `brief.pages[]`; aporta el `targetPath` por defecto de cada ruta (posts fuera de /blog/ → /blog/<slug>/).
+ *   - `strict`: una ruta sin mapping, sin targetPath, que no sea post ni esté en keep → `missing` (exit 1 en la CLI).
+ *     Por defecto (false) esas rutas se consideran "sin cambios": `check-redirects` las verifica contra dist/.
  * @returns {{redirects: {from:string,to:string|null,status:number,reason:string}[], unchanged: string[],
  *           conflicts: {to:string, froms:string[]}[], missing: string[]}}
  */
-export function planRedirects(inventory, mapping, { defaultParent = '/', keep = [], postPattern = /^\/blog\// } = {}) {
+export function planRedirects(inventory, mapping, { defaultParent = '/', keep = [], postPattern = /^\/blog\//, strict = false, pages = [] } = {}) {
   if (!mapping || typeof mapping !== 'object' || Array.isArray(mapping)) {
     throw new Error('mapping debe ser un objeto { "/ruta-antigua/": "/ruta-nueva/" | null | {to, reason} }');
   }
@@ -117,11 +126,24 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
   const keepSet = new Set(keep.map(pathOf).filter(Boolean));
   const paths = inventoryPaths(inventory);
 
-  // Destinos que existirán en el sitio nuevo: valores del mapping + keep + posts por defecto + raíz.
+  // targetPath por defecto según el brief (path → targetPath).
+  const targets = new Map();
+  for (const pg of Array.isArray(pages) ? pages : []) {
+    const from = pathOf(pg?.path ?? pg?.sourceUrl);
+    const to = pathOf(pg?.targetPath);
+    if (from && to) targets.set(from, to);
+  }
+
+  // Destinos que existirán en el sitio nuevo: valores del mapping + keep + targetPath del brief + rutas sin
+  // cambios (todo lo no mapeado, posts incluidos) + raíz.
   const destinations = new Set([root]);
   for (const v of map.values()) if (v.to) destinations.add(v.to);
   for (const k of keepSet) destinations.add(k);
-  for (const p of paths) if (!map.has(p) && postPattern && postPattern.test(p)) destinations.add(p);
+  for (const p of paths) {
+    if (map.has(p)) continue;
+    if (targets.has(p)) destinations.add(targets.get(p));
+    else if (!strict || (postPattern && postPattern.test(p))) destinations.add(p);
+  }
 
   const redirects = [];
   const unchanged = [];
@@ -140,8 +162,14 @@ export function planRedirects(inventory, mapping, { defaultParent = '/', keep = 
   for (const from of paths) {
     const m = map.get(from);
     if (!m) {
-      if (keepSet.has(from) || (postPattern && postPattern.test(from))) unchanged.push(from);
-      else missing.push(from);
+      const target = targets.get(from);
+      if (target && target !== from) {
+        addRedirect({ from, to: target, status: 301, reason: REASON_SLUG }, true);
+      } else if (target || keepSet.has(from) || !strict || (postPattern && postPattern.test(from))) {
+        unchanged.push(from);
+      } else {
+        missing.push(from);
+      }
       continue;
     }
     if (m.status === 410) {
@@ -233,7 +261,7 @@ export function distHasPath(dist, path) {
  * @param {{from:string,to:string|null,status?:number,reason?:string}[]} redirects
  * @param {{maxHops?: number}} [opts]
  */
-export function checkRedirects(inventory, dist, redirects = [], { maxHops = MAX_HOPS } = {}) {
+export function checkRedirects(inventory, dist, redirects = [], { maxHops = MAX_HOPS, conflicts: checkConflicts = true } = {}) {
   const list = Array.isArray(redirects) ? redirects : [];
   const paths = inventoryPaths(inventory);
   const orphans = [];
@@ -272,9 +300,11 @@ export function checkRedirects(inventory, dist, redirects = [], { maxHops = MAX_
   }
 
   const conflicts = [];
-  for (const [to, entries] of byTarget) {
-    const froms = [...new Set(entries.map((e) => e.from))];
-    if (froms.length >= 2 && entries.some((e) => !e.explicit)) conflicts.push({ to, froms });
+  if (checkConflicts) {
+    for (const [to, entries] of byTarget) {
+      const froms = [...new Set(entries.map((e) => e.from))];
+      if (froms.length >= 2 && entries.some((e) => !e.explicit)) conflicts.push({ to, froms });
+    }
   }
 
   return {
@@ -285,6 +315,7 @@ export function checkRedirects(inventory, dist, redirects = [], { maxHops = MAX_
     orphans,
     loops,
     conflicts,
+    conflictsChecked: Boolean(checkConflicts),
   };
 }
 

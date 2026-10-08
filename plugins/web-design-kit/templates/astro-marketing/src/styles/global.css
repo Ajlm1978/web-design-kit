@@ -41,6 +41,9 @@
   --color-muted: light-dark(var(--color-muted-light), var(--color-muted-dark));
   --color-line: light-dark(var(--color-line-light), var(--color-line-dark));
   --color-surface: light-dark(var(--color-surface-light), var(--color-surface-dark));
+  /* Banda "ink" de Section: en claro es la tinta; en oscuro debe ser MÁS oscura que paper, no igual. */
+  --color-band: light-dark(var(--color-ink-light), oklch(11% 0.015 60));
+  --color-band-ink: light-dark(var(--color-paper-light), var(--color-ink-dark));
   --color-accent: light-dark(var(--color-accent-light), var(--color-accent-dark));
   --color-accent-ink: light-dark(var(--color-accent-ink-light), var(--color-accent-ink-dark));
 

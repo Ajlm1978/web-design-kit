@@ -12,8 +12,8 @@
     {
       "id": "WDK-002",
       "title": "Ejecutar eval 02-restaurante-local de punta a punta con /new-website y /audit-site en sesiones separadas",
-      "status": "pending",
-      "evidence": null,
+      "status": "passing",
+      "evidence": "2026-10-08: eval Havana Consulting en Windows; 50/50 tests, Lighthouse 99-100, auditores independientes; informe evals/results/02-havana-consulting-2026-10-08.md",
       "verification": "evals/run.md: sesión A construye, sesión B audita; todos los gates de quality-gates.md verdes; informe guardado en evals/results/02-<fecha>.md"
     },
     {
@@ -40,9 +40,23 @@
     {
       "id": "WDK-006",
       "title": "Rotar el GitHub PAT expuesto en chat el 2026-10-07 (acción del humano) y documentar flujo seguro (gh auth login / GH_TOKEN)",
+      "status": "passing",
+      "evidence": "2026-10-08: usuario confirma PAT revocado; README exige CLI/gh auth",
+      "verification": "Humano confirma token revocado en GitHub Settings → Developer settings; README no menciona tokens en chat"
+    },
+    {
+      "id": "WDK-007",
+      "title": "Comando /migrate-site <url>: auditar sitio ajeno por URL, extraer contenido real (textos, servicios, NAP, imágenes) y generar el brief para /new-website",
       "status": "pending",
       "evidence": null,
-      "verification": "Humano confirma token revocado en GitHub Settings → Developer settings; README no menciona tokens en chat"
+      "verification": "Contra un sitio Wix/WordPress real: informe de auditoría + brief.json con datos extraídos marcados por origen; /new-website consume el brief sin preguntas redundantes"
+    },
+    {
+      "id": "WDK-008",
+      "title": "MCP magic como opt-in real (sin aviso al arrancar si falta MAGIC_API_KEY)",
+      "status": "pending",
+      "evidence": null,
+      "verification": "claude plugin details no lista el MCP por defecto o la sesión arranca sin warning; doc de activación en README"
     }
   ]
 }

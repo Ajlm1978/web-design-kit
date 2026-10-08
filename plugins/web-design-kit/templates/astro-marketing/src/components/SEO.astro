@@ -52,7 +52,8 @@ const fullTitle = rawTitle ? title : `${title} · ${SITE.name}`;
 // en ese caso caemos a SITE.url para no emitir una canónica rota.
 const base = Astro.site ?? new URL(SITE.url);
 const canonical = Astro.props.canonical ?? new URL(Astro.url.pathname, base).toString();
-// Páginas noindex (404) no emiten canónica: apuntaría a una URL inexistente.
+// La 404 no emite canónica (apuntaría a una URL inexistente). Otras páginas noindex (p. ej. un
+// /blog/ aún vacío) sí la llevan: noindex y canónica no son excluyentes.
 
 const ogImage = /^https?:\/\//.test(image) ? image : absoluteUrl(image);
 const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
@@ -60,7 +61,7 @@ const jsonLdList = jsonLd ? (Array.isArray(jsonLd) ? jsonLd : [jsonLd]) : [];
 
 <title>{fullTitle}</title>
 <meta name="description" content={description} />
-{!/noindex/i.test(robots) && <link rel="canonical" href={canonical} />}
+{!/^\/404\/?$/.test(Astro.url.pathname) && <link rel="canonical" href={canonical} />}
 <meta name="robots" content={robots} />
 
 <meta property="og:type" content={type} />

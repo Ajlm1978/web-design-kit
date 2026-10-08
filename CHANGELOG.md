@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.1 — 2026-10-08
+Correcciones tras el primer eval real en Windows (`evals/results/02-havana-consulting-2026-10-08.md`).
+- lighthouserc: sin `preset: 'mobile'` (inválido; móvil es el default), informes en `filesystem`, 404 evaluada sin categoría SEO (`assertMatrix`). Verificado: LHCI corre y pasa.
+- SEO.astro: la canónica solo se omite en la 404, no en cualquier `noindex`.
+- check-seo: `robots-disallow-all` evalúa por grupo de user-agent (falso positivo corregido).
+- Tokens `--color-band`/`--color-band-ink` para `Section tone="ink"` (distinguible en modo oscuro).
+- Skill: pregunta obligatoria de dirección física antes de emitir `LocalBusiness`; `ogLocale` por país.
+- design-critique: nota `MSYS_NO_PATHCONV=1` para Git Bash en Windows.
+- README: requisitos explícitos (CLI de Claude Code, Node ≥ 22.12, Git).
+
 ## 2.0.0 — 2026-10-07
 Reescritura completa. El kit pasa de orquestador delgado (dependía de 3 skills externas y un MCP de pago)
 a kit autocontenido.

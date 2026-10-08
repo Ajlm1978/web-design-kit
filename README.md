@@ -22,6 +22,12 @@ castigan el rendimiento, accesibilidad WCAG 2.2 AA y deploy a coste cero.
 | Comandos | `/new-website`, `/audit-site` |
 | `evals/` | 3 casos (corporativo industrial, restaurante local, portfolio) con criterios de aprobación |
 
+## Requisitos
+- **Claude Code CLI** instalado y en el PATH (`claude --version`). La app de escritorio sola no basta para `claude plugin …`.
+  Windows: `irm https://claude.ai/install.ps1 | iex`, añade `%USERPROFILE%\.local\bin` al PATH y abre una terminal nueva.
+- **Node ≥ 22.12** y **Git** (el marketplace se clona con git; en Windows instala Git for Windows).
+- Opcional: `MAGIC_API_KEY` (21st.dev) para el MCP `magic`. Sin ella, el aviso al arrancar es ruido esperado.
+
 ## Instalación
 
 **Claude Code (marketplace):**

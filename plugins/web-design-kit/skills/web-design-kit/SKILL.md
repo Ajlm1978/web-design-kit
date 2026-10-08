@@ -39,10 +39,16 @@ Todo lo que afirmes sobre versiones sale de `references/versions.md` (fecha de v
 ## Flujo (en orden)
 
 ### 0. Brief (una sola ronda de preguntas, concisa)
-Pregunta solo lo que no sepas: nombre y qué vende · tipo de sitio · idioma(s) · público y
-adjetivos de marca (3) · páginas necesarias · datos reales disponibles (logo, fotos, copy,
-contacto) · hosting preferido · ¿permitir buscadores IA / bloquear entrenamiento? (ver seo.md §4).
+Pregunta solo lo que no sepas: nombre y qué vende · tipo de sitio · idioma(s) y **país/ciudad**
+(fija `locale`/`ogLocale`: Miami → `es_US`, Madrid → `es_ES`, CDMX → `es_MX`) · público y adjetivos
+de marca (3) · páginas necesarias · datos reales disponibles (logo, fotos, copy, contacto) · hosting
+preferido · ¿permitir buscadores IA / bloquear entrenamiento? (ver seo.md §4).
 Si el usuario no sabe, propone un default y márcalo como decisión reversible.
+
+**Si el tipo es `local`, pregunta explícitamente si atienden al público en una dirección física.**
+Sin dirección no emitas `LocalBusiness` (Google lo ignora o lo marca): usa `Organization` +
+`areaServed`, o `ProfessionalService`/`FinancialService` solo cuando haya dirección. Una consultora
+que atiende por cita o a distancia suele ser `corporativo`, no `local`; dilo y deja que el usuario decida.
 
 ### 1. Elegir plantilla
 | Caso | Plantilla | Por qué |

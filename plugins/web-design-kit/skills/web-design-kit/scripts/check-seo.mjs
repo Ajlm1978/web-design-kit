@@ -301,7 +301,12 @@ function checkSite() {
       else if (site && !url.toLowerCase().startsWith(site.toLowerCase() + '/')) error('robots.txt', 'robots-sitemap', `Sitemap: "${url}" no pertenece a --site ${site}`);
       if (/example\.com/i.test(url)) warn('robots.txt', 'placeholder', `Sitemap: apunta a example.com: "${url}"`);
     }
-    if (/^\s*user-agent\s*:\s*\*\s*$[\s\S]*?^\s*disallow\s*:\s*\/\s*$/im.test(txt)) warn('robots.txt', 'robots-disallow-all', 'Posible "User-agent: * / Disallow: /" — el sitio quedaría fuera de los buscadores');
+    // Evaluar por grupo (bloques separados por línea en blanco) para no cruzar reglas de distintos agentes.
+    for (const block of txt.split(/\r?\n\s*\r?\n/)) {
+      const isStar = /^\s*user-agent\s*:\s*\*\s*$/im.test(block);
+      const disallowAll = /^\s*disallow\s*:\s*\/\s*$/im.test(block);
+      if (isStar && disallowAll) warn('robots.txt', 'robots-disallow-all', 'Grupo "User-agent: *" con "Disallow: /" — el sitio quedaría fuera de los buscadores');
+    }
   }
 
   const sitemapIndex = join(distDir, 'sitemap-index.xml');

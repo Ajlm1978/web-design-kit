@@ -25,6 +25,8 @@ sobre lo que hay en disco y en pantalla, no sobre lo que el constructor dice que
 ### 1. Levantar el preview
 ```bash
 cd <proyecto> && npm run build && npx astro preview --port 4321 --host localhost --ignore-lock &
+# Windows + Git Bash: exporta MSYS_NO_PATHCONV=1 antes de pasar rutas tipo `/contacto/` como argumentos,
+# o Git Bash las convierte en rutas de disco (C:\\Program Files\\Git\\contacto).
 sleep 3 && curl -s -o /dev/null -w '%{http_code}\n' http://localhost:4321/   # espera 200
 ```
 

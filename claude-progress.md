@@ -1,6 +1,14 @@
 # claude-progress — web-design-kit
 
-## Estado verificado (2026-10-07)
+## Estado verificado (2026-10-08)
+- Kit v2.0.1 en `main`. Eval WDK-002 PASA en Windows (ver evals/results/). Siguiente: WDK-007 (migrate-site) o WDK-003 (Next).
+
+## Sesión 1 — 2026-10-08 (eval real + v2.0.1)
+- Instalación desde GitHub en Windows OK (CLI 2.1.294). /new-website construyó Havana Consulting: 7 páginas, 50/50 tests, LH 99-100, auditores independientes.
+- 10 hallazgos sobre el kit corregidos (ver CHANGELOG 2.0.1); LHCI verificado en vivo (perf 97-100 / a11y 100 / bp 100 / seo 100 en páginas indexables).
+- `./init.sh` verde: check 0 err, build OK, check-seo 0 err, tokens OK, 26 tests.
+
+## Estado anterior (2026-10-07)
 - Kit v2.0.0 en rama `harness/2026-10-07`, listo para `main`.
 - Gates: ver evidencia de la Sesión 0. Reproducir con `./init.sh`.
 - Feature activa: ninguna (WDK-001 passing). Siguiente sugerida: WDK-006 (humano) y WDK-002.

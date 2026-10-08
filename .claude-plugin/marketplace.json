@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Kit para construir sitios web profesionales con Claude Code: plantilla Astro 7 + Tailwind 4 verificada, SEO 2026, motion, tokens de diseño, gates de calidad y deploy.",
-    "version": "2.0.0"
+    "version": "2.0.1"
   },
   "plugins": [
     {

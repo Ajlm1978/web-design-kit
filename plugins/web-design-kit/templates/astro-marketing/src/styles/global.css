@@ -215,3 +215,70 @@
   column-gap: var(--spacing-gutter);
   row-gap: calc(var(--spacing-gutter) * 1.5);
 }
+
+/* ------------------------------------------------------------------------- */
+/* .prose-kit — HTML generado desde Markdown (blog, páginas migradas).        */
+/* Lo envuelve <Prose>. Solo tokens del @theme; sin plugin de tipografía.     */
+/* ------------------------------------------------------------------------- */
+@layer components {
+  .prose-kit {
+    max-inline-size: var(--container-prose);
+    font-size: var(--text-base);
+    line-height: var(--leading-normal);
+  }
+  .prose-kit > * + * { margin-block-start: 1.25em; }
+  .prose-kit h2,
+  .prose-kit h3,
+  .prose-kit h4 {
+    font-family: var(--font-display);
+    font-weight: 500;
+    letter-spacing: var(--tracking-tight);
+    line-height: var(--leading-snug);
+    text-wrap: balance;
+    margin-block-start: 2em;
+  }
+  .prose-kit h2 { font-size: var(--text-2xl); }
+  .prose-kit h3 { font-size: var(--text-xl); }
+  .prose-kit h4 { font-size: var(--text-lg); }
+  .prose-kit p { max-inline-size: none; }
+  .prose-kit a { color: var(--color-accent); text-decoration: underline; }
+  .prose-kit a:hover { color: var(--color-ink); }
+  .prose-kit strong { font-weight: 600; }
+  .prose-kit ul,
+  .prose-kit ol { padding-inline-start: 1.5em; }
+  .prose-kit ul { list-style: disc; }
+  .prose-kit ol { list-style: decimal; }
+  .prose-kit li + li { margin-block-start: 0.4em; }
+  .prose-kit img {
+    inline-size: 100%;
+    block-size: auto;
+    border-radius: var(--radius-md);
+  }
+  .prose-kit figcaption { font-size: var(--text-sm); color: var(--color-muted); margin-block-start: 0.5em; }
+  .prose-kit blockquote {
+    border-inline-start: 3px solid var(--color-accent);
+    padding-inline-start: 1.25em;
+    color: var(--color-muted);
+    font-style: italic;
+  }
+  .prose-kit hr { border: 0; border-block-start: 1px solid var(--color-line); margin-block: 2.5em; }
+  .prose-kit code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.9em;
+    background: var(--color-surface);
+    padding: 0.1em 0.35em;
+    border-radius: var(--radius-xs);
+  }
+  .prose-kit pre {
+    overflow-x: auto;
+    padding: 1em 1.25em;
+    background: var(--color-surface);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-sm);
+  }
+  .prose-kit pre code { background: none; padding: 0; }
+  .prose-kit table { inline-size: 100%; border-collapse: collapse; font-size: var(--text-sm); }
+  .prose-kit th,
+  .prose-kit td { text-align: start; padding: 0.6em 0.75em; border-block-end: 1px solid var(--color-line); }
+  .prose-kit th { font-weight: 600; }
+}

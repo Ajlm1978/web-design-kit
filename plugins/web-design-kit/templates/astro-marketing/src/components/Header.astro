@@ -17,6 +17,10 @@ export interface Props {
 
 const { dark = false } = Astro.props;
 const current = Astro.url.pathname.replace(/\/$/, '') || '/';
+// "Blog" solo entra en el menú cuando `SITE.showBlog` es true (hay posts publicados).
+const NAV: readonly { label: string; href: string }[] = SITE.showBlog
+  ? [...SITE.nav, { label: 'Blog', href: '/blog/' }]
+  : SITE.nav;
 ---
 
 <header
@@ -37,7 +41,7 @@ const current = Astro.url.pathname.replace(/\/$/, '') || '/';
 
     <!-- Escritorio -->
     <ul class="hidden items-center gap-8 md:flex" role="list">
-      {SITE.nav.map((item) => {
+      {NAV.map((item) => {
         const active = (item.href.replace(/\/$/, '') || '/') === current;
         return (
           <li>
@@ -81,7 +85,7 @@ const current = Astro.url.pathname.replace(/\/$/, '') || '/';
         role="list"
         style="color-scheme: light dark;"
       >
-        {SITE.nav.map((item) => (
+        {NAV.map((item) => (
           <li>
             <a
               href={item.href}

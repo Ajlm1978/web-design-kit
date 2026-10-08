@@ -1,0 +1,86 @@
+---
+/**
+ * /blog/<slug>/ — un post de la colección `blog`.
+ *
+ * - `slug` = `id` de la entrada (nombre del archivo sin `.md`).
+ * - SEO: `type="article"`, canónica autorreferencial (la calcula <SEO>), `article:published_time`,
+ *   JSON-LD `Article` (builder `article()`) + `BreadcrumbList`.
+ * - Autor: `data.author` si existe; si no, la organización (nunca un nombre inventado).
+ */
+import type { GetStaticPaths } from 'astro';
+import { getCollection, render } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Prose from '../../components/Prose.astro';
+import { SITE } from '../../config/site';
+import { article, breadcrumb } from '../../lib/jsonld';
+
+export const getStaticPaths = (async () => {
+  const posts = await getCollection('blog', ({ data }) => !data.draft);
+  return posts.map((post) => ({ params: { slug: post.id }, props: { post } }));
+}) satisfies GetStaticPaths;
+
+const { post } = Astro.props;
+const { Content } = await render(post);
+
+const path = `/blog/${post.id}/`;
+const published = post.data.date.toISOString();
+const dateFmt = new Intl.DateTimeFormat(SITE.locale, { dateStyle: 'long', timeZone: 'UTC' }); // las fechas del frontmatter son UTC
+
+const jsonLd = [
+  article({
+    headline: post.data.title,
+    description: post.data.description ?? undefined,
+    path,
+    image: post.data.image ?? undefined,
+    datePublished: published,
+    author: post.data.author
+      ? { name: post.data.author, type: 'Person' }
+      : { name: SITE.name, url: SITE.url, type: 'Organization' },
+  }),
+  breadcrumb([
+    { name: 'Inicio', path: '/' },
+    { name: 'Blog', path: '/blog/' },
+    { name: post.data.title, path },
+  ]),
+];
+---
+
+<Base
+  title={post.data.title}
+  description={post.data.description ?? undefined}
+  type="article"
+  image={post.data.image ?? undefined}
+  publishedTime={published}
+  jsonLd={jsonLd}
+>
+  <article class="section-space">
+    <div class="site-container">
+      <header class="reveal max-w-prose">
+        <p class="eyebrow">
+          <a href="/blog/" class="text-muted no-underline hover:text-accent">Blog</a>
+        </p>
+        <h1 class="mt-3 text-3xl font-medium">{post.data.title}</h1>
+        <p class="mt-4 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted">
+          <time datetime={published.slice(0, 10)}>{dateFmt.format(post.data.date)}</time>
+          {post.data.author && <span aria-hidden="true">·</span>}
+          {post.data.author && <span>{post.data.author}</span>}
+        </p>
+        {post.data.tags.length > 0 && (
+          <ul class="mt-4 flex flex-wrap gap-2" role="list" aria-label="Etiquetas">
+            {post.data.tags.map((tag) => (
+              <li class="rounded-full border border-line px-3 py-1 text-xs text-muted">{tag}</li>
+            ))}
+          </ul>
+        )}
+      </header>
+
+      <Prose class="reveal reveal-delay-1 mt-10">
+        <Content />
+      </Prose>
+
+      <footer class="mt-14 border-t border-line pt-6 text-sm">
+        <a href="/blog/" class="text-muted hover:text-accent">← Todos los artículos</a>
+      </footer>
+    </div>
+  </article>
+</Base>

@@ -1,0 +1,64 @@
+---
+/**
+ * /blog/ — índice de la colección `blog` (no borradores, más recientes primero).
+ *
+ * Sin posts: responde 200 con "Próximamente" y `noindex,follow`, y `astro.config.mjs` lo
+ * excluye del sitemap. Así la ruta existe desde el día uno (enlaces, redirects de migración)
+ * sin publicar una página vacía en buscadores.
+ */
+import { getCollection } from 'astro:content';
+import Base from '../../layouts/Base.astro';
+import Section from '../../components/Section.astro';
+import { SITE } from '../../config/site';
+import { breadcrumb } from '../../lib/jsonld';
+
+const posts = (await getCollection('blog', ({ data }) => !data.draft)).sort(
+  (a, b) => b.data.date.getTime() - a.data.date.getTime(),
+);
+const hasPosts = posts.length > 0;
+
+const dateFmt = new Intl.DateTimeFormat(SITE.locale, { dateStyle: 'long', timeZone: 'UTC' }); // las fechas del frontmatter son UTC
+---
+
+<Base
+  title="Blog"
+  description={`Artículos y novedades de ${SITE.name}.`}
+  robots={hasPosts ? undefined : 'noindex,follow'}
+  jsonLd={breadcrumb([{ name: 'Inicio', path: '/' }, { name: 'Blog', path: '/blog/' }])}
+>
+  <Section id="blog" eyebrow="Blog" title={hasPosts ? 'Artículos y novedades.' : 'Próximamente.'} as="h1">
+    {hasPosts ? (
+      <ol class="grid gap-10 md:gap-12" role="list">
+        {posts.map((post, i) => (
+          <li class:list={['reveal', i > 0 && 'border-t border-line pt-10 md:pt-12']}>
+            <article class="grid gap-3 md:grid-cols-12 md:gap-8">
+              <time datetime={post.data.date.toISOString().slice(0, 10)} class="text-sm text-muted md:col-span-3">
+                {dateFmt.format(post.data.date)}
+              </time>
+              <div class="md:col-span-9">
+                <h2 class="text-2xl font-medium">
+                  <a href={`/blog/${post.id}/`} class="text-ink no-underline hover:text-accent">
+                    {post.data.title}
+                  </a>
+                </h2>
+                {post.data.description && <p class="mt-2 text-muted">{post.data.description}</p>}
+                {post.data.tags.length > 0 && (
+                  <ul class="mt-4 flex flex-wrap gap-2" role="list" aria-label="Etiquetas">
+                    {post.data.tags.map((tag) => (
+                      <li class="rounded-full border border-line px-3 py-1 text-xs text-muted">{tag}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </article>
+          </li>
+        ))}
+      </ol>
+    ) : (
+      <p class="reveal max-w-prose text-lg text-muted">
+        Estamos preparando los primeros artículos. Mientras tanto, puedes
+        <a href="/contacto/" class="text-ink">escribirnos</a> o volver al <a href="/" class="text-ink">inicio</a>.
+      </p>
+    )}
+  </Section>
+</Base>

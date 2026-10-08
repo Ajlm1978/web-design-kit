@@ -60,6 +60,12 @@ export const SITE = {
     { label: 'Inicio', href: '/' },
     { label: 'Contacto', href: '/contacto/' },
   ],
+  /**
+   * Muestra "Blog" en la navegación. `false` por defecto: `/blog/` existe siempre, pero sin
+   * posts responde "Próximamente" con `noindex` y no entra en el sitemap. Ponlo en `true`
+   * cuando haya al menos un `.md` en `src/content/blog/` (`/new-website --from` lo hace solo).
+   */
+  showBlog: false,
 } as const;
 
 export type SiteConfig = typeof SITE;

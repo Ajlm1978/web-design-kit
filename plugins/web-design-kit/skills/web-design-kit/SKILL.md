@@ -14,8 +14,8 @@ description: |
   seo-audit / design-critique).
 license: MIT
 metadata:
-  version: "2.0.0"
-  last_verified: "2026-10-07"
+  version: "2.1.0"
+  last_verified: "2026-10-08"
   author: "Amilcar Leong"
 ---
 
@@ -44,6 +44,16 @@ Pregunta solo lo que no sepas: nombre y qué vende · tipo de sitio · idioma(s)
 de marca (3) · páginas necesarias · datos reales disponibles (logo, fotos, copy, contacto) · hosting
 preferido · ¿permitir buscadores IA / bloquear entrenamiento? (ver seo.md §4).
 Si el usuario no sabe, propone un default y márcalo como decisión reversible.
+
+**Con `--from <brief.json>` (reconstrucción tras `/migrate-site`) el brief ya existe.** Valídalo con
+`validateBrief` de `scripts/migrate/lib/brief.mjs` (comando exacto en `commands/new-website.md` §0-bis); si
+no valida, STOP. **No preguntes nada cuyo `sources[campo].confidence` sea `high`.** Confirma en una sola
+ronda lo `medium`/`low` y lo `null`, y pregunta solo: (a) dirección de diseño — default *conservar marca,
+rehacer layout*: `brand.colors` → semillas de `tokens.json`, `brand.fonts[].fontsource` → paquetes
+`@fontsource-variable/*`; (b) qué páginas antiguas se descartan (→ `mapping.json`, 301 al padre).
+Luego: posts (`type: post`) → `src/content/blog/<slug>.md`; páginas → `src/content/pages/<slug>.md` +
+`src/pages/<slug>.astro` con `<Prose><Content /></Prose>`; imágenes → `src/assets/migrated/`;
+`showBlog: true` en `site.ts` si hay posts. Doctrina: `references/migration.md`.
 
 **Si el tipo es `local`, pregunta explícitamente si atienden al público en una dirección física.**
 Sin dirección no emitas `LocalBusiness` (Google lo ignora o lo marca): usa `Organization` +
@@ -83,6 +93,9 @@ Edita `src/config/site.ts` (nombre, URL, locale, nav, contacto real o `null`) y 
 - SEO por página con `<SEO>` + builders de `src/lib/jsonld.ts` (Organization/WebSite una vez;
   LocalBusiness, Product, Article, BreadcrumbList por plantilla). Sin FAQPage ni HowTo.
   Doctrina completa: `references/seo.md`.
+- Blog: colección `blog` (`src/content.config.ts`, un `.md` por post en `src/content/blog/`) con
+  `/blog/` y `/blog/<slug>/` ya hechos (Article + BreadcrumbList, canónica, `<time>`). Sin posts,
+  `/blog/` es `noindex` y queda fuera del sitemap; con posts, `showBlog: true` en `site.ts`.
 - Motion: `references/motion.md` + snippets en `assets/motion/` (reveal, view transitions,
   starting-style, isla motion v14, GSAP/Lenis opt-in).
 - Accesibilidad: `references/a11y-eaa.md` (WCAG 2.2 AA; EAA aplica a ventas a la UE).
@@ -118,6 +131,7 @@ reversibles y siguiente paso. Si el proyecto tiene `CLAUDE.md`/KB, actualízalo.
 | `references/quality-gates.md` | Definition of Done y presupuestos. |
 | `references/deploy.md` | Cloudflare/Vercel, cabeceras, DNS, post-deploy. |
 | `references/stack-next.md` | Solo si el caso es app/SaaS. |
+| `references/migration.md` | Reconstruir un sitio existente (`--from brief.json`, `/migrate-site`): 301, paridad, hreflang, Search Console. |
 
 ## Herramientas opcionales (no dependencias)
 - MCP `magic` (21st.dev) declarado en el plugin: inspiración de componentes. Requiere

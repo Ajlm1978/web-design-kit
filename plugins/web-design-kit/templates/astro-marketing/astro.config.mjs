@@ -3,7 +3,17 @@ import { defineConfig, fontProviders } from 'astro/config';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@astrojs/react';
 import sitemap from '@astrojs/sitemap';
+import { existsSync, readdirSync } from 'node:fs';
 import { SITE } from './src/config/site.ts';
+
+/**
+ * ¿Hay posts en la colección `blog`? Se calcula en tiempo de configuración (fs) porque el filtro
+ * del sitemap no puede consultar la content layer. Sin posts, `/blog/` existe (200 + noindex)
+ * pero no debe anunciarse en el sitemap.
+ */
+const BLOG_DIR = new URL('./src/content/blog/', import.meta.url);
+const hasBlogPosts =
+  existsSync(BLOG_DIR) && readdirSync(BLOG_DIR, { recursive: true }).some((f) => /\.mdx?$/i.test(String(f)));
 
 /**
  * Configuración de Astro (salida estática, sin adaptador).
@@ -18,7 +28,13 @@ import { SITE } from './src/config/site.ts';
 export default defineConfig({
   site: SITE.url,
   trailingSlash: 'ignore', // el host redirige (Cloudflare auto-trailing-slash, Vercel trailingSlash:true); los enlaces internos llevan barra final,
-  integrations: [react(), sitemap()],
+  integrations: [
+    react(),
+    sitemap({
+      // Excluye /blog/ (y cualquier /blog/*) del sitemap mientras no haya posts.
+      filter: (page) => hasBlogPosts || !/\/blog(\/|$)/.test(new URL(page).pathname),
+    }),
+  ],
   vite: { plugins: [tailwindcss()] },
   image: {
     // Permite <Image> con fuentes remotas solo si se listan aquí (ninguna por defecto).

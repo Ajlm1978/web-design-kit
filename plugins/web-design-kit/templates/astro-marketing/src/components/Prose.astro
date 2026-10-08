@@ -1,0 +1,24 @@
+---
+/**
+ * <Prose> — contenedor tipográfico para HTML generado desde Markdown
+ * (posts del blog, páginas migradas con `/new-website --from`).
+ *
+ * Los estilos viven en `global.css` bajo `.prose-kit` (h2/h3/p/ul/ol/img/blockquote/pre/table)
+ * y usan solo tokens del `@theme`. El ancho máximo es `--container-prose`.
+ *
+ * Uso:
+ *   const { Content } = await render(entry);   // colección
+ *   <Prose><Content /></Prose>
+ *
+ *   import { Content } from '../content/pages/servicios.md'; // Markdown suelto
+ *   <Prose><Content /></Prose>
+ */
+export interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+
+<div class:list={['prose-kit', className]}>
+  <slot />
+</div>

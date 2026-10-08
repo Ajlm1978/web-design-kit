@@ -9,48 +9,15 @@
  * Sale con código 1 si hay errores; las advertencias no bloquean.
  *
  * Doctrina: ../references/seo.md
+ *
+ * Exporta `auditHtml(html, {url, site, route, is404})` → `{errors:[{code,msg}], warnings:[...], info:[...]}`
+ * para que otros scripts (p. ej. migrate/audit-site.mjs) reutilicen las comprobaciones por página.
+ * La CLI solo se ejecuta cuando el archivo es el módulo principal.
  */
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
-import { join, relative, sep } from 'node:path';
-
-// ---------------------------------------------------------------------------
-// CLI
-// ---------------------------------------------------------------------------
-
-const argv = process.argv.slice(2);
-if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
-  console.log('Uso: node check-seo.mjs <dist-dir> [--site https://dominio.com] [--json]');
-  process.exit(argv.length === 0 ? 1 : 0);
-}
-
-const distDir = argv.find((a) => !a.startsWith('--'));
-const siteArgIdx = argv.indexOf('--site');
-let site = siteArgIdx !== -1 ? argv[siteArgIdx + 1] : null;
-const asJson = argv.includes('--json');
-
-if (!distDir || !existsSync(distDir) || !statSync(distDir).isDirectory()) {
-  console.error(`✗ Directorio no encontrado: ${distDir ?? '(vacío)'}`);
-  process.exit(1);
-}
-if (site) {
-  if (!/^https?:\/\//.test(site)) {
-    console.error(`✗ --site debe ser una URL absoluta (recibido: ${site})`);
-    process.exit(1);
-  }
-  site = site.replace(/\/+$/, '');
-}
-
-// ---------------------------------------------------------------------------
-// Resultados
-// ---------------------------------------------------------------------------
-
-/** @type {{ level: 'error'|'warn'|'info', file: string, check: string, message: string }[]} */
-const findings = [];
-const add = (level, file, check, message) => findings.push({ level, file, check, message });
-const error = (f, c, m) => add('error', f, c, m);
-const warn = (f, c, m) => add('warn', f, c, m);
-const info = (f, c, m) => add('info', f, c, m);
+import { join, relative, resolve, sep } from 'node:path';
+import { pathToFileURL } from 'node:url';
 
 // ---------------------------------------------------------------------------
 // Utilidades de parsing (sin DOM)
@@ -129,70 +96,91 @@ function walkHtml(dir, acc = []) {
 }
 
 // ---------------------------------------------------------------------------
-// Comprobaciones por página
+// Comprobaciones por página (reutilizables)
 // ---------------------------------------------------------------------------
 
-function checkPage(absPath) {
-  const rel = relative(distDir, absPath);
-  const raw = readFileSync(absPath, 'utf8');
-  const html = stripNoise(raw);
-  const route = routeOf(rel);
-  const is404 = /(^|\/)404\.html$/.test(rel.split(sep).join('/'));
+/** Ruta pública a partir de una URL absoluta (`https://x.com/a/` → `/a/`). */
+function routeFromUrl(url) {
+  try {
+    return new URL(url).pathname || '/';
+  } catch {
+    return null;
+  }
+}
 
+/**
+ * Audita el HTML de una página. No toca el disco ni el proceso.
+ * @param {string} raw HTML completo
+ * @param {{url?: string|null, site?: string|null, route?: string|null, is404?: boolean}} [opts]
+ *   - `site`: origen esperado (sin barra final) para validar canonical/og:image.
+ *   - `route`: ruta pública de la página (`/`, `/contacto/`); si falta se deriva de `url`.
+ *   - `is404`: la página es la 404 del sitio (relaja canonical, exige noindex).
+ * @returns {{errors: {code: string, msg: string}[], warnings: {code: string, msg: string}[], info: {code: string, msg: string}[]}}
+ */
+export function auditHtml(raw, { url = null, site = null, route = null, is404 = false } = {}) {
+  const result = { errors: [], warnings: [], info: [] };
+  const error = (code, msg) => result.errors.push({ code, msg });
+  const warn = (code, msg) => result.warnings.push({ code, msg });
+  const info = (code, msg) => result.info.push({ code, msg });
+
+  if (site) site = String(site).replace(/\/+$/, '');
+  if (!route && url) route = routeFromUrl(url);
+
+  const html = stripNoise(String(raw ?? ''));
   const headMatch = html.match(/<head(?=[\s>])[^>]*>([\s\S]*?)<\/head>/i);
   const head = headMatch ? headMatch[1] : html;
 
   // <html lang>
   const htmlTag = tags(html, 'html')[0];
   const lang = htmlTag ? attr(htmlTag, 'lang') : null;
-  if (!lang) error(rel, 'html-lang', 'Falta <html lang="…">');
-  else if (!/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(lang)) warn(rel, 'html-lang', `lang="${lang}" no parece un código BCP 47 válido`);
+  if (!lang) error('html-lang', 'Falta <html lang="…">');
+  else if (!/^[a-z]{2,3}(-[A-Za-z0-9]{2,8})*$/.test(lang)) warn('html-lang', `lang="${lang}" no parece un código BCP 47 válido`);
 
   // <title>
   const titles = [...head.matchAll(/<title(?=[\s>])[^>]*>([\s\S]*?)<\/title>/gi)].map((m) => decode(m[1]));
-  if (titles.length !== 1) error(rel, 'title', `Se esperaba exactamente un <title> en <head>; hay ${titles.length}`);
+  if (titles.length !== 1) error('title', `Se esperaba exactamente un <title> en <head>; hay ${titles.length}`);
   if (titles.length >= 1) {
     const len = textLen(titles[0]);
-    if (len < 10 || len > 65) warn(rel, 'title-length', `<title> tiene ${len} caracteres (recomendado 10–65): "${titles[0].trim()}"`);
-    if (/PLACEHOLDER/i.test(titles[0])) warn(rel, 'placeholder', '<title> contiene PLACEHOLDER');
+    if (len < 10 || len > 65) warn('title-length', `<title> tiene ${len} caracteres (recomendado 10–65): "${titles[0].trim()}"`);
+    if (/PLACEHOLDER/i.test(titles[0])) warn('placeholder', '<title> contiene PLACEHOLDER');
   }
 
   // meta description
   const descs = metaContent(head, 'name', 'description');
-  if (descs.length !== 1) error(rel, 'description', `Se esperaba exactamente una <meta name="description">; hay ${descs.length}`);
+  if (descs.length !== 1) error('description', `Se esperaba exactamente una <meta name="description">; hay ${descs.length}`);
   if (descs.length >= 1) {
     const len = textLen(descs[0]);
-    if (len < 50 || len > 160) warn(rel, 'description-length', `meta description tiene ${len} caracteres (recomendado 50–160)`);
-    if (/PLACEHOLDER/i.test(descs[0])) warn(rel, 'placeholder', 'meta description contiene PLACEHOLDER');
+    if (len < 50 || len > 160) warn('description-length', `meta description tiene ${len} caracteres (recomendado 50–160)`);
+    if (/PLACEHOLDER/i.test(descs[0])) warn('placeholder', 'meta description contiene PLACEHOLDER');
   }
 
   // robots / noindex
   const robots = metaContent(head, 'name', 'robots').join(',').toLowerCase();
   const noindex = robots.includes('noindex');
-  if (is404 && !noindex) error(rel, '404-noindex', '404.html debe llevar <meta name="robots" content="noindex…">');
-  if (!is404 && noindex) info(rel, 'noindex', 'Página con noindex (correcto si es intencional; excluirla del sitemap)');
+  if (is404 && !noindex) error('404-noindex', '404.html debe llevar <meta name="robots" content="noindex…">');
+  if (!is404 && noindex) info('noindex', 'Página con noindex (correcto si es intencional; excluirla del sitemap)');
 
   // <h1>
   const h1s = tags(html, 'h1');
-  if (h1s.length !== 1) error(rel, 'h1', `Se esperaba exactamente un <h1>; hay ${h1s.length}`);
+  if (h1s.length !== 1) error('h1', `Se esperaba exactamente un <h1>; hay ${h1s.length}`);
 
   // canonical
   const canonicals = tags(head, 'link').filter((t) => (attr(t, 'rel') ?? '').toLowerCase().split(/\s+/).includes('canonical'));
   if (canonicals.length === 0) {
-    if (is404) info(rel, 'canonical', 'Sin canonical (aceptable en 404 con noindex)');
-    else error(rel, 'canonical', 'Falta <link rel="canonical">');
+    if (is404) info('canonical', 'Sin canonical (aceptable en 404 con noindex)');
+    else error('canonical', 'Falta <link rel="canonical">');
   } else if (canonicals.length > 1) {
-    error(rel, 'canonical', `Hay ${canonicals.length} canonical; debe haber una`);
+    error('canonical', `Hay ${canonicals.length} canonical; debe haber una`);
   } else {
     const href = attr(canonicals[0], 'href') ?? '';
-    if (!/^https?:\/\/[^/]+/i.test(href)) error(rel, 'canonical-absolute', `canonical no es absoluta: "${href}"`);
-    else if (site && !is404) {
+    if (!/^https?:\/\/[^/]+/i.test(href)) error('canonical-absolute', `canonical no es absoluta: "${href}"`);
+    else if (site && route && !is404) {
       const norm = (u) => u.replace(/\/+$/, '').toLowerCase();
       const expected = site + route;
       if (!href.toLowerCase().startsWith(site.toLowerCase() + '/') && norm(href) !== norm(site)) {
-        error(rel, 'canonical-site', `canonical "${href}" no pertenece a --site ${site}`);
+        error('canonical-site', `canonical "${href}" no pertenece a --site ${site}`);
       } else if (norm(href) !== norm(expected)) {
-        error(rel, 'canonical-self', `canonical "${href}" no coincide con la ruta del archivo (${expected})`);
+        error('canonical-self', `canonical "${href}" no coincide con la ruta del archivo (${expected})`);
       }
     }
   }
@@ -202,50 +190,50 @@ function checkPage(absPath) {
   const ogDesc = metaContent(head, 'property', 'og:description');
   const ogImage = metaContent(head, 'property', 'og:image');
   const twCard = metaContent(head, 'name', 'twitter:card');
-  if (ogTitle.length !== 1) error(rel, 'og:title', `og:title: hay ${ogTitle.length}, se esperaba 1`);
-  if (ogDesc.length !== 1) error(rel, 'og:description', `og:description: hay ${ogDesc.length}, se esperaba 1`);
-  if (ogImage.length === 0) error(rel, 'og:image', 'Falta og:image');
+  if (ogTitle.length !== 1) error('og:title', `og:title: hay ${ogTitle.length}, se esperaba 1`);
+  if (ogDesc.length !== 1) error('og:description', `og:description: hay ${ogDesc.length}, se esperaba 1`);
+  if (ogImage.length === 0) error('og:image', 'Falta og:image');
   else {
     const img = ogImage[0];
-    if (!/^https?:\/\//i.test(img)) error(rel, 'og:image', `og:image debe ser URL absoluta: "${img}"`);
-    if (/\.svg(\?|$)/i.test(img)) warn(rel, 'og:image-svg', 'og:image es SVG; la mayoría de scrapers sociales requieren PNG/JPG 1200x630');
-    if (site && /^https?:\/\//i.test(img) && !img.toLowerCase().startsWith(site.toLowerCase())) info(rel, 'og:image-host', `og:image en otro host: ${img}`);
+    if (!/^https?:\/\//i.test(img)) error('og:image', `og:image debe ser URL absoluta: "${img}"`);
+    if (/\.svg(\?|$)/i.test(img)) warn('og:image-svg', 'og:image es SVG; la mayoría de scrapers sociales requieren PNG/JPG 1200x630');
+    if (site && /^https?:\/\//i.test(img) && !img.toLowerCase().startsWith(site.toLowerCase())) info('og:image-host', `og:image en otro host: ${img}`);
   }
-  if (twCard.length !== 1) error(rel, 'twitter:card', `twitter:card: hay ${twCard.length}, se esperaba 1`);
-  else if (!/^(summary|summary_large_image|player|app)$/.test(twCard[0])) warn(rel, 'twitter:card', `twitter:card con valor inusual "${twCard[0]}"`);
+  if (twCard.length !== 1) error('twitter:card', `twitter:card: hay ${twCard.length}, se esperaba 1`);
+  else if (!/^(summary|summary_large_image|player|app)$/.test(twCard[0])) warn('twitter:card', `twitter:card con valor inusual "${twCard[0]}"`);
 
   // JSON-LD
-  const ldBlocks = [...raw.matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  const ldBlocks = [...String(raw ?? '').matchAll(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)];
   const seenTypes = [];
   ldBlocks.forEach((m, i) => {
     let data;
     try {
       data = JSON.parse(m[1].trim());
     } catch (e) {
-      error(rel, 'jsonld-parse', `Bloque JSON-LD #${i + 1} no parsea: ${e.message}`);
+      error('jsonld-parse', `Bloque JSON-LD #${i + 1} no parsea: ${e.message}`);
       return;
     }
     const nodes = Array.isArray(data) ? data : data['@graph'] ? data['@graph'] : [data];
     const rootHasContext = Boolean(data['@context']) || (Array.isArray(data) && data.every((n) => n && n['@context']));
-    if (!rootHasContext) error(rel, 'jsonld-context', `Bloque JSON-LD #${i + 1} sin @context`);
+    if (!rootHasContext) error('jsonld-context', `Bloque JSON-LD #${i + 1} sin @context`);
     for (const node of nodes) {
       if (!node || typeof node !== 'object') continue;
       const type = node['@type'];
       if (!type) {
-        error(rel, 'jsonld-type', `Bloque JSON-LD #${i + 1} sin @type`);
+        error('jsonld-type', `Bloque JSON-LD #${i + 1} sin @type`);
         continue;
       }
       const typeList = Array.isArray(type) ? type : [type];
       seenTypes.push(...typeList);
       for (const t of typeList) {
-        if (/^(FAQPage|HowTo)$/i.test(t)) warn(rel, 'jsonld-retired', `@type ${t}: rich result retirado por Google (FAQ 2026-05, HowTo 2023); eliminar`);
-        if (/^(AggregateRating|Review)$/i.test(t)) warn(rel, 'jsonld-review', `@type ${t}: solo con reseñas reales de primera parte`);
+        if (/^(FAQPage|HowTo)$/i.test(t)) warn('jsonld-retired', `@type ${t}: rich result retirado por Google (FAQ 2026-05, HowTo 2023); eliminar`);
+        if (/^(AggregateRating|Review)$/i.test(t)) warn('jsonld-review', `@type ${t}: solo con reseñas reales de primera parte`);
       }
-      if (/^(Article|BlogPosting|NewsArticle)$/.test(typeList[0]) && !node.author) warn(rel, 'jsonld-author', `${typeList[0]} sin author (E-E-A-T)`);
-      if (/^(Article|BlogPosting|NewsArticle)$/.test(typeList[0]) && !node.datePublished) warn(rel, 'jsonld-date', `${typeList[0]} sin datePublished`);
+      if (/^(Article|BlogPosting|NewsArticle)$/.test(typeList[0]) && !node.author) warn('jsonld-author', `${typeList[0]} sin author (E-E-A-T)`);
+      if (/^(Article|BlogPosting|NewsArticle)$/.test(typeList[0]) && !node.datePublished) warn('jsonld-date', `${typeList[0]} sin datePublished`);
     }
   });
-  if (seenTypes.length) info(rel, 'jsonld', `JSON-LD: ${seenTypes.join(', ')}`);
+  if (seenTypes.length) info('jsonld', `JSON-LD: ${seenTypes.join(', ')}`);
 
   // Imágenes
   const mainMatch = html.match(/<main(?=[\s>])[^>]*>([\s\S]*?)<\/main>/i);
@@ -254,18 +242,18 @@ function checkPage(absPath) {
   if (main) {
     const firstImg = tags(main, 'img')[0];
     if (firstImg && (attr(firstImg, 'loading') ?? '').toLowerCase() === 'lazy') {
-      error(rel, 'lcp-lazy', `La primera <img> dentro de <main> lleva loading="lazy" (candidata LCP; usar eager + fetchpriority="high")`);
+      error('lcp-lazy', `La primera <img> dentro de <main> lleva loading="lazy" (candidata LCP; usar eager + fetchpriority="high")`);
     }
   } else if (allImgs.length) {
-    info(rel, 'main', 'Sin <main>; no se puede identificar la imagen LCP');
+    info('main', 'Sin <main>; no se puede identificar la imagen LCP');
   }
   allImgs.forEach((t) => {
     const loading = (attr(t, 'loading') ?? '').toLowerCase();
     const fp = (attr(t, 'fetchpriority') ?? '').toLowerCase();
     const src = attr(t, 'src') ?? '(sin src)';
-    if (fp === 'high' && loading === 'lazy') error(rel, 'lcp-lazy', `<img fetchpriority="high"> con loading="lazy": ${src}`);
-    if (!hasAttr(t, 'alt')) error(rel, 'img-alt', `<img> sin atributo alt: ${src}`);
-    if (!hasAttr(t, 'width') || !hasAttr(t, 'height')) warn(rel, 'img-dimensions', `<img> sin width/height (riesgo CLS): ${src}`);
+    if (fp === 'high' && loading === 'lazy') error('lcp-lazy', `<img fetchpriority="high"> con loading="lazy": ${src}`);
+    if (!hasAttr(t, 'alt')) error('img-alt', `<img> sin atributo alt: ${src}`);
+    if (!hasAttr(t, 'width') || !hasAttr(t, 'height')) warn('img-dimensions', `<img> sin width/height (riesgo CLS): ${src}`);
   });
 
   // Enlaces internos
@@ -276,18 +264,36 @@ function checkPage(absPath) {
     const internal = href.startsWith('/') || (site && href.toLowerCase().startsWith(site.toLowerCase()));
     if (!internal) continue;
     const path = href.replace(/^https?:\/\/[^/]+/i, '').split(/[?#]/)[0];
-    if (/\.html?$/i.test(path) && !/\/404\.html$/.test(path)) error(rel, 'link-html', `Enlace interno con extensión .html: ${href}`);
-    if (/\/\//.test(path)) error(rel, 'link-double-slash', `Enlace interno con doble barra: ${href}`);
+    if (/\.html?$/i.test(path) && !/\/404\.html$/.test(path)) error('link-html', `Enlace interno con extensión .html: ${href}`);
+    if (/\/\//.test(path)) error('link-double-slash', `Enlace interno con doble barra: ${href}`);
   }
 
-  if (/<meta[^>]+name\s*=\s*["']keywords["']/i.test(head)) info(rel, 'meta-keywords', 'meta keywords presente: ignorada por buscadores; se puede eliminar');
+  if (/<meta[^>]+name\s*=\s*["']keywords["']/i.test(head)) info('meta-keywords', 'meta keywords presente: ignorada por buscadores; se puede eliminar');
+
+  return result;
+}
+
+/** Audita un archivo del dist y vuelca los hallazgos en `findings` con la ruta relativa como `file`. */
+function checkPage(absPath, { distDir, site, findings }) {
+  const rel = relative(distDir, absPath);
+  const raw = readFileSync(absPath, 'utf8');
+  const is404 = /(^|\/)404\.html$/.test(rel.split(sep).join('/'));
+  const r = auditHtml(raw, { site, route: routeOf(rel), is404 });
+  for (const f of r.errors) findings.push({ level: 'error', file: rel, check: f.code, message: f.msg });
+  for (const f of r.warnings) findings.push({ level: 'warn', file: rel, check: f.code, message: f.msg });
+  for (const f of r.info) findings.push({ level: 'info', file: rel, check: f.code, message: f.msg });
 }
 
 // ---------------------------------------------------------------------------
 // Comprobaciones de sitio
 // ---------------------------------------------------------------------------
 
-function checkSite() {
+function checkSite({ distDir, site, findings }) {
+  const add = (level, file, check, message) => findings.push({ level, file, check, message });
+  const error = (f, c, m) => add('error', f, c, m);
+  const warn = (f, c, m) => add('warn', f, c, m);
+  const info = (f, c, m) => add('info', f, c, m);
+
   const robotsPath = join(distDir, 'robots.txt');
   if (!existsSync(robotsPath)) {
     error('robots.txt', 'robots', 'No existe robots.txt en dist');
@@ -330,31 +336,63 @@ function checkSite() {
 }
 
 // ---------------------------------------------------------------------------
-// Ejecución
+// CLI
 // ---------------------------------------------------------------------------
 
-const pages = walkHtml(distDir).sort();
-if (pages.length === 0) error(distDir, 'pages', 'No se encontró ningún .html en dist');
-for (const p of pages) checkPage(p);
-checkSite();
-
-const counts = { error: 0, warn: 0, info: 0 };
-for (const f of findings) counts[f.level]++;
-
-if (asJson) {
-  console.log(JSON.stringify({ dist: distDir, site, pages: pages.length, counts, findings }, null, 2));
-} else {
-  const order = ['error', 'warn', 'info'];
-  const label = { error: 'ERRORES', warn: 'ADVERTENCIAS', info: 'INFO' };
-  const mark = { error: '✗', warn: '!', info: '·' };
-  for (const level of order) {
-    const items = findings.filter((f) => f.level === level);
-    if (!items.length) continue;
-    console.log(`\n${label[level]} (${items.length})`);
-    for (const f of items) console.log(`  ${mark[level]} [${f.file}] ${f.check}: ${f.message}`);
+function main(argv) {
+  if (argv.length === 0 || argv.includes('-h') || argv.includes('--help')) {
+    console.log('Uso: node check-seo.mjs <dist-dir> [--site https://dominio.com] [--json]');
+    process.exit(argv.length === 0 ? 1 : 0);
   }
-  console.log(`\nResumen: ${pages.length} página(s) · ${counts.error} error(es) · ${counts.warn} advertencia(s) · ${counts.info} info${site ? ` · site=${site}` : ''}`);
-  console.log(counts.error ? 'Resultado: FALLÓ' : 'Resultado: OK');
+
+  const distDir = argv.find((a) => !a.startsWith('--'));
+  const siteArgIdx = argv.indexOf('--site');
+  let site = siteArgIdx !== -1 ? argv[siteArgIdx + 1] : null;
+  const asJson = argv.includes('--json');
+
+  if (!distDir || !existsSync(distDir) || !statSync(distDir).isDirectory()) {
+    console.error(`✗ Directorio no encontrado: ${distDir ?? '(vacío)'}`);
+    process.exit(1);
+  }
+  if (site) {
+    if (!/^https?:\/\//.test(site)) {
+      console.error(`✗ --site debe ser una URL absoluta (recibido: ${site})`);
+      process.exit(1);
+    }
+    site = site.replace(/\/+$/, '');
+  }
+
+  /** @type {{ level: 'error'|'warn'|'info', file: string, check: string, message: string }[]} */
+  const findings = [];
+  const ctx = { distDir, site, findings };
+
+  const pages = walkHtml(distDir).sort();
+  if (pages.length === 0) findings.push({ level: 'error', file: distDir, check: 'pages', message: 'No se encontró ningún .html en dist' });
+  for (const p of pages) checkPage(p, ctx);
+  checkSite(ctx);
+
+  const counts = { error: 0, warn: 0, info: 0 };
+  for (const f of findings) counts[f.level]++;
+
+  if (asJson) {
+    console.log(JSON.stringify({ dist: distDir, site, pages: pages.length, counts, findings }, null, 2));
+  } else {
+    const order = ['error', 'warn', 'info'];
+    const label = { error: 'ERRORES', warn: 'ADVERTENCIAS', info: 'INFO' };
+    const mark = { error: '✗', warn: '!', info: '·' };
+    for (const level of order) {
+      const items = findings.filter((f) => f.level === level);
+      if (!items.length) continue;
+      console.log(`\n${label[level]} (${items.length})`);
+      for (const f of items) console.log(`  ${mark[level]} [${f.file}] ${f.check}: ${f.message}`);
+    }
+    console.log(`\nResumen: ${pages.length} página(s) · ${counts.error} error(es) · ${counts.warn} advertencia(s) · ${counts.info} info${site ? ` · site=${site}` : ''}`);
+    console.log(counts.error ? 'Resultado: FALLÓ' : 'Resultado: OK');
+  }
+
+  process.exit(counts.error ? 1 : 0);
 }
 
-process.exit(counts.error ? 1 : 0);
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  main(process.argv.slice(2));
+}

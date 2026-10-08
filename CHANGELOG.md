@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.1.0 — 2026-10-08
+Nuevo: migración de sitios existentes (WDK-007), spec en `docs/superpowers/specs/2026-10-08-migrate-site-design.md`.
+- `/migrate-site` + skill `migrate-site`: fases 0–5 (autorización obligatoria, inventario, auditoría vendible,
+  extracción, reconstrucción, redirects/paridad), límites y escalado.
+- Scripts `skills/web-design-kit/scripts/migrate/` (Node 22 ESM, cero deps): `crawl-site` (robots.txt, sitemap,
+  2 req/s, `--render` opcional), `scan-source` (carpeta, WXR, repo; nunca copia `.env*`/claves), `audit-site`
+  (`audit.md` + `audit.json`, Lighthouse opcional), `extract-content` (Markdown con frontmatter, `assets/`,
+  `brief.json` con `sources{campo:{from,confidence}}`), `plan-redirects` (`redirects.json`, merge en `vercel.json`,
+  `public/_redirects`) y `check-redirects` (paridad contra `dist/`, exit 1 con huérfanas/bucles/conflictos).
+- `assets/brief.schema.json` v1 + validador sin deps (`lib/brief.mjs`).
+- Plantilla: colección `blog` (`src/content.config.ts`, `/blog/`, `/blog/[slug]/` con `Article` + `BreadcrumbList`,
+  `noindex` sin posts), flag `showBlog` en `site.ts`; tests Playwright 26 → 32.
+- `/new-website --from <brief.json>`: no repite lo `high`, una ronda para `medium/low/null`, posts a `src/content/blog/`.
+- `references/migration.md`: 301 + paridad, qué SEO se preserva, páginas basura, hreflang es/en, Search Console.
+- Eval `evals/cases/04-migracion.md`; fixtures `wp-like` (42 páginas), `wp-export.xml`, `spa-like`.
+- 137 tests `node:test` (`init.sh` paso "Tests migrate"; job CI `migrate-tests`).
+
 ## 2.0.1 — 2026-10-08
 Correcciones tras el primer eval real en Windows (`evals/results/02-havana-consulting-2026-10-08.md`).
 - lighthouserc: sin `preset: 'mobile'` (inválido; móvil es el default), informes en `filesystem`, 404 evaluada sin categoría SEO (`assertMatrix`). Verificado: LHCI corre y pasa.

@@ -30,6 +30,15 @@ if(bad){process.exit(1)}
 JS
 if command -v claude >/dev/null; then claude plugin validate "$ROOT" | tail -1; else echo "(claude CLI no disponible: validación oficial omitida)"; fi
 
+step "Tests migrate (node:test)"
+# Glob obligatorio: `node --test <dir>` falla en Node 22.22 (no recorre directorios).
+MIGRATE_LOG="$(mktemp)"
+if (cd "$ROOT" && node --test "plugins/web-design-kit/skills/web-design-kit/scripts/migrate/test/*.test.mjs" >"$MIGRATE_LOG" 2>&1); then
+  grep -E '^# (tests|pass|fail)' "$MIGRATE_LOG"; rm -f "$MIGRATE_LOG"
+else
+  tail -40 "$MIGRATE_LOG"; rm -f "$MIGRATE_LOG"; echo "ERROR: tests de migrate en rojo"; exit 1
+fi
+
 step "Plantilla astro-marketing: install (IGNORE_SCRIPTS=$IGNORE_SCRIPTS)"
 cd "$TPL"
 if [ "$IGNORE_SCRIPTS" = "1" ]; then npm ci --ignore-scripts --no-fund --no-audit; else npm ci --no-fund --no-audit; fi

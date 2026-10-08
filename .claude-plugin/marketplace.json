@@ -5,13 +5,13 @@
     "url": "https://github.com/Ajlm1978"
   },
   "metadata": {
-    "description": "Kit para construir sitios web profesionales con Claude Code: plantilla Astro 7 + Tailwind 4 verificada, SEO 2026, motion, tokens de diseño, gates de calidad y deploy.",
-    "version": "2.0.1"
+    "description": "Kit para construir sitios web profesionales con Claude Code: plantilla Astro 7 + Tailwind 4 verificada, SEO 2026, motion, tokens de diseño, gates de calidad, deploy y migración de sitios existentes sin perder URLs.",
+    "version": "2.1.0"
   },
   "plugins": [
     {
       "name": "web-design-kit",
-      "description": "Sitios web profesionales de cero a publicado: /new-website, /audit-site y las skills web-design-kit, seo-audit y design-critique. Plantilla Astro 7 + Tailwind 4 con tests, SEO, motion y deploy incluidos.",
+      "description": "Sitios web profesionales de cero a publicado: /new-website, /audit-site, /migrate-site y las skills web-design-kit, seo-audit, design-critique y migrate-site. Plantilla Astro 7 + Tailwind 4 con tests, SEO, motion, deploy y migración con redirects 301 incluidos.",
       "source": "./plugins/web-design-kit",
       "category": "development",
       "keywords": [
@@ -19,7 +19,8 @@
         "astro",
         "seo",
         "design",
-        "animations"
+        "animations",
+        "migration"
       ]
     }
   ]

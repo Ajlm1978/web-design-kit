@@ -47,8 +47,8 @@
     {
       "id": "WDK-007",
       "title": "Comando /migrate-site <url>: auditar sitio ajeno por URL, extraer contenido real (textos, servicios, NAP, imágenes) y generar el brief para /new-website",
-      "status": "pending",
-      "evidence": null,
+      "status": "passing",
+      "evidence": "2026-10-08: 6 scripts Node 22 ESM sin deps (crawl-site, scan-source, audit-site, extract-content, plan-redirects, check-redirects) + lib; 137 tests node:test verdes (glob test/*.test.mjs); fixture wp-like: 42 páginas, 3 rotos, 1 duplicado, brief con 12 sources high; blog collection en plantilla (32 tests Playwright); /new-website --from; skill+comando /migrate-site; references/migration.md; init.sh y CI con job migrate-tests. Pendiente eval real (Task 9, evals/cases/04-migracion.md pasada B).",
       "verification": "Contra un sitio Wix/WordPress real: informe de auditoría + brief.json con datos extraídos marcados por origen; /new-website consume el brief sin preguntas redundantes"
     },
     {

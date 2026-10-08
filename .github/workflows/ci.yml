@@ -1,9 +1,10 @@
 # CI del marketplace web-design-kit.
 #
-# Tres jobs independientes:
-#   validate   → manifiestos del plugin + frontmatter de todas las SKILL.md (bloqueante)
-#   template   → build, astro check, Playwright+axe y check-seo del template Astro (bloqueante)
-#   lighthouse → Lighthouse CI sobre dist/ (NO bloqueante todavía; ver comentario del job)
+# Cuatro jobs independientes:
+#   validate       → manifiestos del plugin + frontmatter de todas las SKILL.md (bloqueante)
+#   migrate-tests  → node:test de los scripts de /migrate-site (cero deps, bloqueante)
+#   template       → build, astro check, Playwright+axe y check-seo del template Astro (bloqueante)
+#   lighthouse     → Lighthouse CI sobre dist/ (NO bloqueante todavía; ver comentario del job)
 #
 # Node 22 porque Astro 7 exige >= 22.12 (ver skills/web-design-kit/references/versions.md).
 
@@ -126,6 +127,28 @@ jobs:
         continue-on-error: true
         run: npx -y @anthropic-ai/claude-code@latest plugin validate .
 
+  migrate-tests:
+    name: Tests de /migrate-site (node:test, sin deps)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # Los scripts de migrate no tienen package.json ni dependencias: solo Node 22 (fetch, node:test, node:http).
+      # El glob es obligatorio: `node --test <directorio>` no recorre carpetas en Node 22.22.
+      - name: node --test (crawl, scan, audit, extract, redirects, lib)
+        run: node --test "plugins/web-design-kit/skills/web-design-kit/scripts/migrate/test/*.test.mjs"
+
+      - name: node --check de cada script
+        run: |
+          for f in plugins/web-design-kit/skills/web-design-kit/scripts/migrate/*.mjs plugins/web-design-kit/skills/web-design-kit/scripts/migrate/lib/*.mjs; do
+            node --check "$f"
+          done
+
   template:
     name: Template astro-marketing (build + check + tests + SEO)
     runs-on: ubuntu-latest
@@ -156,7 +179,7 @@ jobs:
         run: npx playwright install --with-deps chromium
 
       # playwright.config.ts levanta `astro preview` él mismo (webServer).
-      - name: Playwright + axe (17 tests)
+      - name: Playwright + axe + blog + SEO (32 tests)
         run: npm test
         env:
           CI: true

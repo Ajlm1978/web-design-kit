@@ -1,7 +1,32 @@
 # claude-progress — web-design-kit
 
-## Estado verificado (2026-10-08)
-- Kit v2.0.1 en `main`. Eval WDK-002 PASA en Windows (ver evals/results/). Siguiente: WDK-007 (migrate-site) o WDK-003 (Next).
+## Estado verificado (2026-10-08, sesión 2)
+- Kit v2.1.0 en rama `feat/migrate-site` (WDK-007 passing, pendiente merge a `main` y eval real Task 9). Siguiente: eval `04-migracion.md` pasada B con sitio real autorizado (QA independiente) o WDK-003 (Next).
+
+## Sesión 2 — 2026-10-08 (WDK-007: /migrate-site v2.1.0)
+**Hecho**
+- Spec + plan (`docs/superpowers/`). 6 scripts Node 22 ESM sin deps en `skills/web-design-kit/scripts/migrate/` + `lib/` (url, html, html-to-md, inventory, brand, brief, redirects) + `assets/brief.schema.json` v1.
+- Fixtures `evals/fixtures/` (`wp-like` 42 páginas generado por `generate.mjs`, `wp-export.xml`, `spa-like`).
+- Plantilla: colección `blog` + `/blog/`, `/blog/[slug]/`, `showBlog`; `/new-website --from brief.json`.
+- Skill `migrate-site` (172 líneas, fases 0–5, pregunta de autorización literal), comando `/migrate-site`, `references/migration.md`, eval `04-migracion.md`.
+- `init.sh` paso "Tests migrate", CI job `migrate-tests`, README/CHANGELOG/manifiestos 2.1.0, DECISIONS.
+
+**Evidencia (resumida)**
+- `node --test "…/migrate/test/*.test.mjs"`: 137 pass / 0 fail (26 suites).
+- `scan-source` + `extract-content` sobre `wp-like`: 42 páginas, 30 posts, brief con 12 `sources` high / 2 medium, `validateBrief` OK.
+- `./init.sh` completo: ver salida pegada en el commit `feat: /migrate-site v2.1.0 (WDK-007)` (astro check 0 err, build OK, check-seo 0 err, tokens OK, 32 tests Playwright, 137 tests migrate).
+- `claude plugin validate .`: OK.
+
+**Pendientes**
+- Task 9: eval end-to-end por un agente QA que no construyó nada (fixture servido + sitio real autorizado) → `evals/results/04-*.md`.
+- Merge `feat/migrate-site` → `main` tras el eval.
+- Scripts no cubiertos por el plan: `--lang es|en` del spec no existe como flag (el idioma se detecta de `<html lang>`); `--lighthouse` solo con inventario de URL.
+- Fixture `wp-like` referencia imágenes `wp-content/uploads/*.jpg` que no existen en disco (avisos en `extract-content --download-images`).
+
+**Decisiones**: ver DECISIONS.md (sección 2026-10-08 — /migrate-site).
+
+## Estado anterior (2026-10-08, sesión 1)
+- Kit v2.0.1 en `main`. Eval WDK-002 PASA en Windows (ver evals/results/).
 
 ## Sesión 1 — 2026-10-08 (eval real + v2.0.1)
 - Instalación desde GitHub en Windows OK (CLI 2.1.294). /new-website construyó Havana Consulting: 7 páginas, 50/50 tests, LH 99-100, auditores independientes.

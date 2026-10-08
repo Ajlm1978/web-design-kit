@@ -4,8 +4,8 @@ Kit público (marketplace + Agent Skill) para construir sitios web **impecables 
 criterio (no "plantilla de IA"), SEO que funciona en Google y en buscadores con IA, animaciones que no
 castigan el rendimiento, accesibilidad WCAG 2.2 AA y deploy a coste cero.
 
-**Estado: v2.0.0 — plantilla y gates verificados el 2026-10-07** (build 1 s, `astro check` 0 errores,
-26 tests Playwright + axe en verde, `check-seo` 0 errores). Versiones y fecha en
+**Estado: v2.1.0 — plantilla y gates verificados el 2026-10-08** (build ~1 s, `astro check` 0 errores,
+32 tests Playwright + axe en verde, `check-seo` 0 errores, 137 tests `node:test` de migración). Versiones y fecha en
 [`versions.md`](plugins/web-design-kit/skills/web-design-kit/references/versions.md).
 
 ## Qué trae
@@ -18,9 +18,10 @@ castigan el rendimiento, accesibilidad WCAG 2.2 AA y deploy a coste cero.
 | `scripts/tokens-to-theme.mjs` | Tokens DTCG 2025.10 (`tokens.json`, OKLCH, modos) → bloque `@theme` de Tailwind 4 |
 | `scripts/check-seo.mjs` | Valida títulos, descripciones, canónicas, OG, JSON-LD, imagen LCP, robots, sitemap, 404 |
 | `scripts/check-versions.mjs` | Detecta drift de versiones contra npm |
+| Skill `migrate-site` + `scripts/migrate/` | Migra un sitio existente (URL, carpeta/WXR o repo) sin perder URLs: autorización, `crawl-site`/`scan-source` → `inventory.json`, `audit-site` → auditoría vendible, `extract-content` → Markdown + `brief.json` con `confidence` por campo, `plan-redirects`/`check-redirects` → 301 con paridad contra `dist/`. Cero dependencias, 137 tests |
 | `assets/motion/` | Snippets listos: reveal CSS, view transitions, `@starting-style`, isla `motion` v14, GSAP scrollytelling, Lenis opt-in |
-| Comandos | `/new-website`, `/audit-site` |
-| `evals/` | 3 casos (corporativo industrial, restaurante local, portfolio) con criterios de aprobación |
+| Comandos | `/new-website` (con `--from brief.json`), `/audit-site`, `/migrate-site` |
+| `evals/` | 4 casos (corporativo industrial, restaurante local, portfolio, migración) con criterios de aprobación y fixtures `wp-like`/`wp-export.xml`/`spa-like` |
 
 ## Requisitos
 - **Claude Code CLI** instalado y en el PATH (`claude --version`). La app de escritorio sola no basta para `claude plugin …`.
@@ -50,6 +51,14 @@ No es dependencia.
 ```
 El agente pregunta el brief una sola vez, copia la plantilla, deriva tokens de la marca, construye,
 corre los gates y entrega con evidencia. Para auditar un sitio existente: `/audit-site ./dist --site https://…`.
+
+Para rehacer un sitio que ya existe sin perder sus URLs:
+```
+/migrate-site --url https://sitio-viejo.com        # o --dir ./export.xml | --repo owner/repo
+```
+Pide autorización (propietario o permiso escrito), inventaría, entrega `migration/audit.md` para el cliente,
+extrae contenido y `brief.json`, reconstruye con `/new-website --from migration/brief.json` y no entrega hasta que
+`check-redirects` confirme 0 URLs antiguas huérfanas (301 en `vercel.json`/`_redirects`).
 
 ## Decisiones de arquitectura (resumen)
 - **Astro estático por defecto**: los crawlers de IA no ejecutan JS y Google exige páginas indexables;

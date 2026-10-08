@@ -1,6 +1,9 @@
 {
   "name": "amilcar-web-kit",
-  "owner": { "name": "Amilcar Leong", "url": "https://github.com/Ajlm1978" },
+  "owner": {
+    "name": "Amilcar Leong",
+    "url": "https://github.com/Ajlm1978"
+  },
   "metadata": {
     "description": "Kit para construir sitios web profesionales con Claude Code: plantilla Astro 7 + Tailwind 4 verificada, SEO 2026, motion, tokens de diseño, gates de calidad y deploy.",
     "version": "2.0.0"
@@ -10,9 +13,14 @@
       "name": "web-design-kit",
       "description": "Sitios web profesionales de cero a publicado: /new-website, /audit-site y las skills web-design-kit, seo-audit y design-critique. Plantilla Astro 7 + Tailwind 4 con tests, SEO, motion y deploy incluidos.",
       "source": "./plugins/web-design-kit",
-      "version": "2.0.0",
       "category": "development",
-      "keywords": ["website", "astro", "seo", "design", "animations"]
+      "keywords": [
+        "website",
+        "astro",
+        "seo",
+        "design",
+        "animations"
+      ]
     }
   ]
 }

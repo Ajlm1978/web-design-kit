@@ -17,6 +17,18 @@ Nuevo: migración de sitios existentes (WDK-007), spec en `docs/superpowers/spec
 - Eval `evals/cases/04-migracion.md`; fixtures `wp-like` (42 páginas), `wp-export.xml`, `spa-like`.
 - 137 tests `node:test` (`init.sh` paso "Tests migrate"; job CI `migrate-tests`).
 
+Correcciones tras la QA independiente (`evals/results/04-wp-like-2026-10-08.md`, mismo día; `fix(migrate): …`):
+- `extract-content` escribe `content/blog/<slug>.md` (slug = último segmento de la URL: copiar a `src/content/blog/`
+  sin renombrar conserva `/blog/<slug>/`) y `content/pages/<slug>.md`; frontmatter `path`; `brief.pages[]` con
+  `path`/`targetPath`/`file`. Título sin sufijo " - Sitio", H1 duplicado fuera del cuerpo, enlaces internos relativos
+  a la raíz, meta de WordPress (`entry-meta`/`entry-footer`) fuera del Markdown.
+- `plan-redirects`: rutas sin mapping = sin cambios (`--strict` para exigirlas), `--brief` aplica `targetPath`.
+  `check-redirects`: con `vercel.json` no evalúa conflictos (sin `reason`) y lo indica.
+- `audit-site`: las URL 4xx/5xx no se auditan como páginas; `summary.pages` = páginas que responden,
+  `inventoried`, `errorPages`, `brokenTargets`; resumen ejecutivo sin dobles conteos.
+- Fixture `wp-like` con 9 archivos `/tag/`+`/author/` (51 páginas); `cases/04` realineado. Nuevo `test/e2e.test.mjs`
+  (crawl → audit → extract → copiar posts → dist simulado → plan → check). 161 tests.
+
 ## 2.0.1 — 2026-10-08
 Correcciones tras el primer eval real en Windows (`evals/results/02-havana-consulting-2026-10-08.md`).
 - lighthouserc: sin `preset: 'mobile'` (inválido; móvil es el default), informes en `filesystem`, 404 evaluada sin categoría SEO (`assertMatrix`). Verificado: LHCI corre y pasa.

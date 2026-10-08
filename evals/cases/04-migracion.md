@@ -18,10 +18,11 @@ está mal en la actual, en lenguaje que pueda enseñarle a mi socio. La web es <
 
 ## Entradas
 
-**A — fixture `wp-like`** (12 páginas + 30 posts, sitemap, `robots.txt` con `Disallow: /privado/`, 3 enlaces
-rotos, 1 duplicado, JSON-LD `LocalBusiness` en `/contacto/`, `theme-color`, CSS con 2 colores y `font-family`):
+**A — fixture `wp-like`** (12 páginas + 30 posts + 9 archivos `/tag/<slug>/` y `/author/<slug>/` como genera
+WordPress = 51 `index.html`, sitemap, `robots.txt` con `Disallow: /privado/`, 3 enlaces rotos a `/no-existe-N/`,
+1 duplicado, JSON-LD `LocalBusiness` en `/contacto/`, `theme-color`, CSS con 2 colores y `font-family`):
 ```bash
-# Servidor local (cero dependencias). Nota: /tag/ y /author/ no existen en disco → por URL salen como 404.
+# Servidor local (cero dependencias): un servidor estático simple responde 200 a los 51 index.html y 404 solo a /no-existe-N/.
 (cd evals/fixtures/wp-like && python3 -m http.server 8080) &
 # Alternativa determinista sin servidor:
 /migrate-site --dir evals/fixtures/wp-like --base-url http://localhost:8080
@@ -41,16 +42,23 @@ rotos, 1 duplicado, JSON-LD `LocalBusiness` en `/contacto/`, `theme-color`, CSS 
 ## Artefactos esperados (bajo `migration/`)
 - `AUTHORIZATION.md` con quién, fecha ISO, base de la autorización y origen literal.
 - `inventory.json` (`version: 1`, `source.kind` `url`|`dir`, `pages[]`, `skipped[]`, `warnings[]`, `stats`) + `raw/*.html`.
-  - A por carpeta: 42 páginas, `source.stack: "static"`. A por URL: 41 con status 200 + 3 con 404, `skipped`
-    con `reason: "robots"` para `/privado/`.
+  - A por carpeta: 51 páginas (todas `status: 200`), `source.stack: "static"`. A por URL: 50 con status 200
+    (51 menos `/privado/`) + 3 con 404 (`/no-existe-1/2/3/`) = 53 entradas en `pages[]`, `skipped` con
+    `reason: "robots"` para `/privado/`.
 - `audit.md` con `## Resumen ejecutivo` y `## Enlaces rotos`; `audit.json.summary` con `broken: 3`,
-  `duplicates: 1` (A).
-- `content/<slug>.md` (42 en A: 12 `type: page`, 30 `type: post` con `date`), `assets/` con las imágenes
-  descargadas/copiadas (en A el fixture referencia `wp-content/uploads/*.jpg` que no existen en disco: salen como
-  avisos, no como error), `brief.json` válido contra `assets/brief.schema.json` v1 con `sources{}` por campo
-  (en A: 12 `high`, 2 `medium`).
-- `mapping.json` escrito con el cliente (en A: `"/duplicada/": null` como mínimo).
-- Proyecto Astro desde `templates/astro-marketing` con `src/content/blog/*.md` (30 en A), `src/content/pages/*.md`
+  `brokenTargets: 3`, `duplicates: 1`, `errorPages: 3` por URL (0 por carpeta) (A). Las 3 URL 404 **no** se
+  auditan como páginas SEO: `summary.pages` cuenta solo las que responden (`pages[]` no las incluye).
+- `content/blog/<slug>.md` (30 `type: post` con `date`, nombre = último segmento de la URL: `post-01.md`) y
+  `content/pages/<slug>.md` (`type: page`: 21 por carpeta —12 + 9 archivos tag/author—, 20 por URL porque
+  `/privado/` se omite por robots). Cada `.md` lleva `path` (ruta original) en el frontmatter; `brief.pages[]`
+  lleva `path`, `targetPath` y `file`. `assets/` con las imágenes descargadas/copiadas (en A el fixture
+  referencia `wp-content/uploads/*.jpg` que no existen en disco: salen como avisos, no como error),
+  `brief.json` válido contra `assets/brief.schema.json` v1 con `sources{}` por campo (en A: 12 `high`, 2 `medium`).
+- `mapping.json` escrito con el cliente (en A: `"/duplicada/": null` como mínimo; `plan-redirects` manda la
+  descartada al padre más cercano existente, que para `/duplicada/` es `/`; si el cliente quiere `/nosotros/`,
+  se escribe `{ "to": "/nosotros/", "reason": "duplicada" }`). Las rutas ausentes del mapping se tratan como
+  "sin cambios" y las verifica `check-redirects` contra `dist/` (con `--strict` serían error).
+- Proyecto Astro desde `templates/astro-marketing` con `src/content/blog/*.md` (30 en A, copiados sin renombrar), `src/content/pages/*.md`
   + `src/pages/<slug>.astro`, `src/assets/migrated/`, `showBlog: true`.
 - `redirects.json`, bloque `redirects` fusionado en `vercel.json` (cabeceras intactas) y `public/_redirects`.
 - Informe final con el formato de la skill `migrate-site` e `/audit-site` por otra sesión.
@@ -65,8 +73,11 @@ Todos los gates de `quality-gates.md` sobre el sitio nuevo **más**:
 - [ ] `/new-website --from` **no repite** ninguna pregunta cuyo campo sea `high`; una sola ronda para `medium/low/null`.
 - [ ] **Todos los posts migrados**: `ls src/content/blog/*.md | wc -l` == `brief.migration.posts` (30 en A); cada uno con
       `date` del original (no la de hoy) y `sourceUrl`.
-- [ ] `check-redirects.mjs migration/inventory.json dist --redirects migration/redirects.json` → **exit 0, 0 huérfanas**,
-      incluidos `/privado/`, `/duplicada/` (→ `/nosotros/` o su padre) y los 3 enlaces rotos del inventario (A).
+- [ ] `check-redirects.mjs migration/inventory.json dist --redirects migration/redirects.json` → **exit 0, 0 huérfanas**
+      sobre todas las URL del inventario con `status < 400`: los 30 posts conservan `/blog/post-NN/`, `/duplicada/`
+      redirige a su padre (o a `/nosotros/` con `reason`), los 9 archivos `/tag/`/`/author/` se conservan o se
+      redirigen con `mapping.json`. Las 3 URL 404 y `/privado/` (robots, solo entra por carpeta) no forman parte
+      del gate (pendiente H-09 del informe `evals/results/04-wp-like-2026-10-08.md`).
 - [ ] `plan-redirects` con `--vercel vercel.json --public public`: `vercel.json` conserva `headers` y `trailingSlash`.
 - [ ] `check-seo dist --site https://example.com` 0 errores; posts con `Article` JSON-LD, canónica y `<time>`.
 - [ ] Nada inventado: NAP/horario/servicios con `confidence` ≠ `high` aparecen como pregunta o `PLACEHOLDER`, nunca como dato.

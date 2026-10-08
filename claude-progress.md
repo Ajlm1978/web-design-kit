@@ -1,12 +1,33 @@
 # claude-progress — web-design-kit
 
-## Estado verificado (2026-10-08, sesión 2)
-- Kit v2.1.0 en rama `feat/migrate-site` (WDK-007 passing, pendiente merge a `main` y eval real Task 9). Siguiente: eval `04-migracion.md` pasada B con sitio real autorizado (QA independiente) o WDK-003 (Next).
+## Estado verificado (2026-10-08, sesión 3)
+- Kit v2.1.0 en rama `feat/migrate-site`: QA independiente (`evals/results/04-wp-like-2026-10-08.md`) dio NO PASA (H-01 bloqueante); corregidos H-01..H-07, H-10, H-16 (+ parte de H-14) con TDD. Tests migrate 161/161, `./init.sh` verde, `claude plugin validate` OK. Siguiente: repetir pasada A con build Astro real por otra sesión QA, luego pasada B (sitio real) y merge a `main`.
+
+## Sesión 3 — 2026-10-08 (correcciones QA WDK-007)
+**Hecho**
+- H-10: fixture `wp-like` con 9 archivos `/tag/`+`/author/` (51 páginas; URL 50×200 + 3×404); conteos de tests y `cases/04` realineados.
+- H-01 (bloqueante): `extract-content` → `content/blog/<último-segmento>.md` + `content/pages/<slug>.md`; frontmatter `path`; `brief.pages[]` con `path`/`targetPath`/`file`; `plan-redirects --brief`. Posts conservan `/blog/<slug>/`.
+- H-02/H-06/H-07: H1 duplicado fuera del cuerpo, título sin sufijo del sitio, enlaces internos relativos a la raíz, meta de WP (`entry-meta`/`entry-footer`) fuera del Markdown.
+- H-03/H-04: rutas sin mapping = sin cambios (`--strict` opcional); `check-redirects` con `vercel.json` no evalúa conflictos (sin `reason`) y lo dice.
+- H-05: `audit.md` sin dobles conteos (`summary.pages` = páginas que responden, `inventoried`, `errorPages`, `brokenTargets`).
+- Nuevo `test/e2e.test.mjs` (crawl→audit→extract→copiar posts→dist simulado→plan→check): falla en el código previo, pasa ahora.
+- Docs: `migrate-site/SKILL.md`, `commands/new-website.md`, `commands/migrate-site.md`, spec, `migration.md`, `brief.schema.json`; sección "Correcciones aplicadas" en el informe QA.
+
+**Evidencia (resumida)**
+- `node --test "…/migrate/test/*.test.mjs"`: 161 pass / 0 fail (antes 137).
+- `./init.sh`: astro check 0 err · build OK · check-seo 0 err · tokens OK · 32 Playwright · OK — kit verificado 2026-10-08T22:11Z.
+- `claude plugin validate .`: passed.
+
+**Pendientes**
+- QA pasada A completa con build Astro real (maker ≠ checker) y pasada B; merge a `main`.
+- Hallazgos abiertos: H-08 (WXR `<channel>`/display name), H-09 (regla única para `/privado/` y 404 en paridad), H-11, H-12, H-13, H-14 (frase alt), H-15, H-17, H-18; imágenes no descargadas siguen absolutas (H-07 parcial).
+
+**Decisiones**: ver DECISIONS.md (sección 2026-10-08 — correcciones QA).
 
 ## Sesión 2 — 2026-10-08 (WDK-007: /migrate-site v2.1.0)
 **Hecho**
 - Spec + plan (`docs/superpowers/`). 6 scripts Node 22 ESM sin deps en `skills/web-design-kit/scripts/migrate/` + `lib/` (url, html, html-to-md, inventory, brand, brief, redirects) + `assets/brief.schema.json` v1.
-- Fixtures `evals/fixtures/` (`wp-like` 42 páginas generado por `generate.mjs`, `wp-export.xml`, `spa-like`).
+- Fixtures `evals/fixtures/` (`wp-like` 42 páginas —51 desde la sesión 3— generado por `generate.mjs`, `wp-export.xml`, `spa-like`).
 - Plantilla: colección `blog` + `/blog/`, `/blog/[slug]/`, `showBlog`; `/new-website --from brief.json`.
 - Skill `migrate-site` (172 líneas, fases 0–5, pregunta de autorización literal), comando `/migrate-site`, `references/migration.md`, eval `04-migracion.md`.
 - `init.sh` paso "Tests migrate", CI job `migrate-tests`, README/CHANGELOG/manifiestos 2.1.0, DECISIONS.

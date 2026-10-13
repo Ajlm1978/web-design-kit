@@ -1,6 +1,6 @@
 {
   "name": "web-design-kit",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "description": "Sitios web profesionales e impecables con Claude Code (2026): plantilla Astro 7 + Tailwind 4 verificada (SEO en HTML, JSON-LD, robots con política IA, fuentes locales, View Transitions, tests axe+Playwright, Lighthouse 13), pipeline de tokens DTCG → @theme, doctrina de diseño anti AI-slop, política de motion (CSS first, motion v14, GSAP opt-in), gates de calidad y deploy a Cloudflare Workers/Vercel. Migración de sitios existentes (/migrate-site: crawl/scan, auditoría, extracción a Markdown + brief.json, redirects 301 con paridad). Comandos: /new-website, /audit-site, /migrate-site. Skills: web-design-kit, seo-audit, design-critique, migrate-site.",
   "author": {
     "name": "Amilcar Leong",

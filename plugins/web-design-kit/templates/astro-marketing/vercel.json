@@ -1,8 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "_comment": "Sitio estático Astro. SOLO cabeceras. NO añadir rewrites tipo SPA ('/(.*)' -> '/index.html'): devolvería 200 con la portada para cualquier URL inexistente, rompiendo la 404 real (dist/404.html, que Vercel detecta solo) y creando soft-404 para los buscadores.",
   "trailingSlash": true,
-  "_trailingSlash": "Coherente con las canónicas (/ruta/) que genera Astro; sin esto Vercel sirve /ruta y /ruta/ con 200 → URLs duplicadas.",
   "headers": [
     {
       "source": "/(.*)",

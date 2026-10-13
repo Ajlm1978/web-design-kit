@@ -47,6 +47,14 @@ step "astro check"; npm run check
 step "build"; npm run build
 step "check-seo"; node "$KIT/scripts/check-seo.mjs" dist --site https://example.com
 step "tokens --check"; node "$KIT/scripts/tokens-to-theme.mjs" "$KIT/assets/tokens.example.json" src/styles/global.css --check
+step "vercel.json sin claves extra (Vercel rechaza el deploy ante propiedades desconocidas)"
+node -e '
+const j=JSON.parse(require("fs").readFileSync("vercel.json","utf8"));
+const ok=new Set(["$schema","trailingSlash","headers","redirects","rewrites","cleanUrls","framework","buildCommand","outputDirectory","installCommand","regions","crons","images","functions","git","github","public","ignoreCommand","devCommand"]);
+const bad=Object.keys(j).filter(k=>!ok.has(k));
+if(bad.length){console.error("ERROR vercel.json: claves no admitidas:",bad.join(", "));process.exit(1)}
+if(j.rewrites&&JSON.stringify(j.rewrites).includes("index.html")){console.error("ERROR vercel.json: rewrite SPA rompe la 404 real");process.exit(1)}
+console.log("ok vercel.json")'
 
 if [ "$QUICK" != "--quick" ]; then
   step "Playwright + axe + SEO tests"

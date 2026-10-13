@@ -80,10 +80,16 @@ npx wrangler deployments list                 # historial / rollback: `wrangler 
 - **404 real**: Vercel detecta `dist/404.html` y lo sirve con estado 404 **si no lo rompes**.
   Nunca añadas un rewrite catch-all tipo SPA (`"/(.*)" → "/index.html"`): convertiría toda URL
   inexistente en un 200 con la portada = soft-404 para Google. El `vercel.json` del template
-  solo lleva cabeceras y lo advierte en `_comment`.
+  solo lleva `trailingSlash` y cabeceras.
+- **`trailingSlash: true`** es obligatorio: coherente con las canónicas `/ruta/` que genera Astro;
+  sin él Vercel sirve `/ruta` y `/ruta/` con 200 → URLs duplicadas.
+- **Sin claves extra.** Vercel valida `vercel.json` contra su esquema y **rechaza el deploy** ante
+  cualquier propiedad desconocida (`_comment`, `_nota`, etc. → "should NOT have additional
+  property"). Los comentarios van aquí o en `README.md`, nunca dentro del JSON. Verificado el
+  2026-10-13 en un deploy real; `init.sh` lo comprueba.
 
 ### 2.1 `vercel.json` (ya en el template)
-Solo `headers` (§4) y, si hace falta, `redirects`:
+Solo `trailingSlash`, `headers` (§4) y, si hace falta, `redirects`:
 
 ```json
 {

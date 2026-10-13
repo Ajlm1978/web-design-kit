@@ -14,8 +14,8 @@ description: |
   seo-audit / design-critique).
 license: MIT
 metadata:
-  version: "2.1.0"
-  last_verified: "2026-10-08"
+  version: "2.1.1"
+  last_verified: "2026-10-13"
   author: "Amilcar Leong"
 ---
 

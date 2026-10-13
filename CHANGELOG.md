@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.1.1 — 2026-10-13
+Corrección encontrada en producción (eval `911locksmithassistance.com`, deploy real en Vercel vía Git):
+- `templates/astro-marketing/vercel.json`: eliminadas las claves `_comment` y `_trailingSlash`. Vercel valida el
+  archivo contra su esquema y **rechazaba el deploy** ("should NOT have additional property `_comment`").
+  Los comentarios pasan a `references/deploy.md` §2.
+- `init.sh`: nuevo gate "vercel.json sin claves extra" (también detecta rewrites SPA a `index.html`).
+
 ## 2.1.0 — 2026-10-08
 Nuevo: migración de sitios existentes (WDK-007), spec en `docs/superpowers/specs/2026-10-08-migrate-site-design.md`.
 - `/migrate-site` + skill `migrate-site`: fases 0–5 (autorización obligatoria, inventario, auditoría vendible,

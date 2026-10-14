@@ -9,10 +9,10 @@
 **Evidencia**: `curl -I` a www → 308 → apex `server: Vercel`; Vercel `misconfigured:false`; ambos dominios "Valid Configuration".
 
 **Pendientes (WDK nuevos, de esta pasada)**
-- Error mío: la descripción del PR decía "JSON-LD LocalBusiness" sin comprobarlo; en vivo es Organization/WebSite/ContactPoint/OpeningHours **sin `areaServed`** (falta para negocios de zona de servicio). Plantilla/`jsonld.ts`: emitir `areaServed` cuando no hay dirección.
-- Claims sin respaldo publicados (500+, 5★, 0 quejas, 100 %, 2+ años, 15 min, "licenciado y asegurado"): decisión del dueño pendiente.
+- Error mío (corregido): la descripción del PR decía "JSON-LD LocalBusiness" sin comprobarlo, y luego afirmé que faltaba `areaServed` sin leer el HTML en vivo. Verificado 2026-10-14: producción ya emite `areaServed: "Miami-Dade County, FL"` (Organization + ContactPoint + WebSite); el constructor `organization()` de la plantilla ya lo soporta. Sin trabajo pendiente. Lección: verificar contra el HTML en vivo antes de afirmar.
+- Claims sin respaldo publicados (500+, 5★, 0 quejas, 100 %, 2+ años, 15 min, "licenciado y asegurado"): riesgo señalado; decisión del dueño 2026-10-14: se quedan como están.
 - `check-seo`/crawl: falso positivo robots/sitemap en SPAs que devuelven HTML 200; auto `--render` en js-only; `DEP0190` (`shell:true`) en audit-site; `extract-content` crash al salir en Windows; `plan-redirects` no debe escribir `_redirects` en Vercel ni `redirects: []` vacío; `PW_PORT`/puerto libre en Playwright de la plantilla; `--into <repo>`; documentar permiso "read outside working dir".
-- Search Console: pedir indexación de la raíz tras arreglar `www` (hecho el DNS 2026-10-14), sitemap completo, Bing import; despublicar el proyecto Lovable.
+- Search Console: DNS y Lovable resueltos (2026-10-14, sitemap enviado). Pendiente: re-revisar canónico el 21–24/10 (si sigue en `www`, validar/solicitar indexación del apex) y Bing import.
 - Actualizar el doc del Project a v2.1.1; WDK-003 (Next 16.4), WDK-004/005/008.
 
 ## Estado verificado (2026-10-08, sesión 4)

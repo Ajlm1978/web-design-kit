@@ -87,6 +87,14 @@ npx wrangler deployments list                 # historial / rollback: `wrangler 
   cualquier propiedad desconocida (`_comment`, `_nota`, etc. → "should NOT have additional
   property"). Los comentarios van aquí o en `README.md`, nunca dentro del JSON. Verificado el
   2026-10-13 en un deploy real; `init.sh` lo comprueba.
+- **Plan Hobby + repo privado: el autor del commit debe ser el dueño de la cuenta.** Vercel compara
+  el email del commit con el GitHub vinculado; si no coincide, el deploy sale `BLOCKED` ("Deployment
+  was blocked") aunque el código esté bien. Causa real vista el 2026-10-13: `git config user.email`
+  con un typo (`…fong@` en vez de `…leong@`), que además hace que GitHub no cuente los commits.
+  Antes del primer push: `git config user.email` y compáralo con *GitHub → Settings → Emails*.
+  Arreglo: `git commit --amend --reset-author --no-edit` + `git push --force-with-lease`.
+- **Conectar Git, no `vercel deploy`.** Sin repo conectado no hay preview por PR ni comentario del
+  bot. Conectar lanza un deploy de producción de la rama principal: avisa al cliente antes.
 
 ### 2.1 `vercel.json` (ya en el template)
 Solo `trailingSlash`, `headers` (§4) y, si hace falta, `redirects`:
@@ -118,6 +126,20 @@ pueden cambiar). Redirección apex ↔ www se configura ahí mismo.
 
 - [ ] Elegida **una** URL canónica (`https://www.cliente.com` o `https://cliente.com`); la otra
       redirige 301. Coincide con `site` en `astro.config.mjs`.
+- [ ] **`www` y apex apuntan al mismo proveedor.** `curl -I https://www.cliente.com` debe dar
+      `308/301` a la canónica con el `server:` de tu plataforma. Un `A www` heredado de un
+      constructor anterior (Lovable, Wix…) deja **dos sitios vivos**: Google los ve como duplicados
+      y elige el viejo como canónico ("Duplicate without user-selected canonical"). Caso
+      911locksmithassistance.com, 2026-10-14: apex en Vercel, `www` → `185.158.133.1` (Lovable).
+- [ ] Al cambiar `www`: añade el dominio en la plataforma (redirect a la canónica) → borra el `A`
+      viejo → crea el `CNAME` **enseguida**. En el hueco Vercel muestra `NXDOMAIN` / "Failed To
+      Generate Cert"; es transitorio: pulsa *Refresh*. Un `A` y un `CNAME` no pueden compartir
+      nombre. Comprueba con `curl -I`, no solo con el panel (que tarda en refrescar).
+- [ ] Despublica el sitio anterior y quítale el dominio, o seguirá indexable en su URL de
+      plataforma (`*.lovable.app`, etc.).
+- [ ] Search Console con propiedad de tipo **Dominio**: el sitemap se envía con la **URL completa**
+      (`https://cliente.com/sitemap-index.xml`); la ruta relativa da "Invalid sitemap address".
+      Pide indexación **después** de arreglar `www`, no antes.
 - [ ] TTL de los registros a 300 s **antes** del cambio; subir a 3600+ cuando esté estable.
 - [ ] Registros que **no** tocar al migrar: `MX`, `TXT` (SPF/DKIM/DMARC), `_dmarc`, verificaciones
       de Google/Meta. Exporta la zona antes de cambiar nameservers.

@@ -1,5 +1,20 @@
 # claude-progress — web-design-kit
 
+## Sesión 5 — 2026-10-13/14 (pasada B real: 911locksmithassistance.com, v2.1.1)
+**Hecho**
+- Rebuild Astro del sitio real (SPA React/Vite → Astro) en repo del usuario, PR #1 mergeado, producción en Vercel: home 200, robots 200, sitemap-index 200, `/loquesea/` 404 real, canonical OK.
+- Bug propio encontrado en despliegue real: `vercel.json` de la plantilla con `_comment`/`_trailingSlash` → Vercel rechaza ("should NOT have additional property"). Corregido en v2.1.1 (`3b9d721`) + gate en `init.sh` (verificado: detecta el archivo viejo, pasa con el nuevo).
+- Lecciones de producción a `references/deploy.md` §2 y §3: Hobby + repo privado exige autor de commit = dueño (typo de email en git → `BLOCKED`), conectar Git, `www`/apex en proveedores distintos (dos sitios vivos, Google eligió el viejo), orden de cambio de DNS, sitemap con URL completa en propiedad Dominio.
+
+**Evidencia**: `curl -I` a www → 308 → apex `server: Vercel`; Vercel `misconfigured:false`; ambos dominios "Valid Configuration".
+
+**Pendientes (WDK nuevos, de esta pasada)**
+- Error mío: la descripción del PR decía "JSON-LD LocalBusiness" sin comprobarlo; en vivo es Organization/WebSite/ContactPoint/OpeningHours **sin `areaServed`** (falta para negocios de zona de servicio). Plantilla/`jsonld.ts`: emitir `areaServed` cuando no hay dirección.
+- Claims sin respaldo publicados (500+, 5★, 0 quejas, 100 %, 2+ años, 15 min, "licenciado y asegurado"): decisión del dueño pendiente.
+- `check-seo`/crawl: falso positivo robots/sitemap en SPAs que devuelven HTML 200; auto `--render` en js-only; `DEP0190` (`shell:true`) en audit-site; `extract-content` crash al salir en Windows; `plan-redirects` no debe escribir `_redirects` en Vercel ni `redirects: []` vacío; `PW_PORT`/puerto libre en Playwright de la plantilla; `--into <repo>`; documentar permiso "read outside working dir".
+- Search Console: pedir indexación de la raíz tras arreglar `www` (hecho el DNS 2026-10-14), sitemap completo, Bing import; despublicar el proyecto Lovable.
+- Actualizar el doc del Project a v2.1.1; WDK-003 (Next 16.4), WDK-004/005/008.
+
 ## Estado verificado (2026-10-08, sesión 4)
 - Kit v2.1.0 en rama `feat/migrate-site`: QA pasada 2 con build Astro real (`evals/results/04-wp-like-2026-10-08-pass2.md`) dio PASA CON HALLAZGOS; corregidos los 4 medios (H2-01..H2-04) + H2-07 + H-11 con TDD (commit `667d0cb`). Tests migrate 172/172, `./init.sh` verde. Siguiente: pasada B (sitio real) por otra sesión QA; cerrar bajos H2-05/H2-06 si sobra; merge a `main`.
 

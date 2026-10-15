@@ -78,6 +78,13 @@
       "status": "pending",
       "evidence": "2026-10-15 eval 05: fue el hallazgo P0 de genoma-web (`<div id=\"root\"></div>` para bots, Lighthouse SEO 100 engañoso) y el agente lo improvisó con curl. Es el gate que distingue 'indexable' de 'parece indexable'.",
       "verification": "check-seo --site <url> --live falla con `html-empty` cuando la ruta sin JS no tiene h1/texto; pasa en la plantilla Astro; falla en genoma-web hasta que tenga prerender"
+    },
+    {
+      "id": "WDK-012",
+      "title": "/migrate-site --until <fase> (p. ej. --until 3): parar tras inventario+auditoría+extracción sin reconstruir, para sitios propios de los que solo se quiere sacar contenido/assets a brief.json",
+      "status": "pending",
+      "evidence": "2026-10-15: genoma-web (React, ya existe) necesitaba logo, FAQs y textos del legado genomai.ai; el comando obliga a pasar por /new-website (Astro) o a llamar crawl-site + extract-content a mano desde la caché del plugin.",
+      "verification": "`/migrate-site --url https://genomai.ai --until 3` genera migration/{inventory,brief}.json + content/ + images/ y termina con el informe de extracción; sin --until sigue hasta la fase 5"
     }
   ]
 }

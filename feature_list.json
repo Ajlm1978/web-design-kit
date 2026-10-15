@@ -57,6 +57,27 @@
       "status": "pending",
       "evidence": null,
       "verification": "claude plugin details no lista el MCP por defecto o la sesión arranca sin warning; doc de activación en README"
+    },
+    {
+      "id": "WDK-009",
+      "title": "/audit-site agnóstico de scripts npm: detectar check/verify/test/build en package.json y marcar N/A lo que no exista, en vez de asumir `npm run check` y `npm test`",
+      "status": "pending",
+      "evidence": "2026-10-15 eval 05 (genoma-web, Vite SPA): el comando asume `npm run check` y `npm test`; el repo solo tiene `verify`. El agente lo resolvió solo, pero el gate no está definido para repos ajenos al kit.",
+      "verification": "audit-site.md lee `scripts` de package.json; sobre genoma-web corre `verify` y marca tests N/A sin improvisar; sobre la plantilla del kit sigue corriendo check+test"
+    },
+    {
+      "id": "WDK-010",
+      "title": "design-critique agnóstico de framework y con capturas obligatorias: detectar el comando de preview (astro/vite/next) y el puerto; sin PNG a 375/1280 light+dark el gate es FALLA, no 'parcial'",
+      "status": "pending",
+      "evidence": "2026-10-15 eval 05: SKILL.md fija `astro preview --port 4321`; en un repo Vite el agente no tomó capturas y entregó 'crítica parcial' leyendo código. El límite de violeta ≤3/viewport quedó sin verificar. Una crítica de diseño sin mirar la página no es crítica de diseño.",
+      "verification": "Sobre genoma-web (Vite): critique/ contiene 4 PNG por página; el informe cita capturas por hallazgo; sobre la plantilla Astro sigue funcionando igual"
+    },
+    {
+      "id": "WDK-011",
+      "title": "Gate formal 'HTML sin JS' en /audit-site y check-seo: curl de cada ruta del sitemap y verificar que h1, title, canonical y texto principal estén en el HTML servido (lo que ven GPTBot/ClaudeBot/scrapers OG)",
+      "status": "pending",
+      "evidence": "2026-10-15 eval 05: fue el hallazgo P0 de genoma-web (`<div id=\"root\"></div>` para bots, Lighthouse SEO 100 engañoso) y el agente lo improvisó con curl. Es el gate que distingue 'indexable' de 'parece indexable'.",
+      "verification": "check-seo --site <url> --live falla con `html-empty` cuando la ruta sin JS no tiene h1/texto; pasa en la plantilla Astro; falla en genoma-web hasta que tenga prerender"
     }
   ]
 }

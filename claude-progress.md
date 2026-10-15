@@ -1,5 +1,16 @@
 # claude-progress — web-design-kit
 
+## Sesión 6 — 2026-10-15 (eval 05: /audit-site sobre repo ajeno al kit, genoma-web Vite SPA)
+**Hecho**
+- `/audit-site` (plugin 2.1.0, Windows) contra `Ajlm1978/genoma-web` (React 19 + Vite 6 SPA, no construido con el kit). El auditor corrigió solo dos premisas falsas del usuario (no es Next; `genomai.ai` sirve el legado, el repo publica en `genoma-web.vercel.app`), comparó local/prod/legado y entregó NO LISTO con 12 hallazgos archivo:línea. Build local byte-idéntico a producción. Sin cambios aplicados.
+- Informe: `evals/results/05-genoma-web-2026-10-15.md`. Hallazgo P0 del sitio: HTML vacío para bots, 404 falso, sin canonical/JSON-LD → depende del prerender (fuera del kit).
+- Tres bugs del kit → `feature_list.json`: **WDK-009** (`audit-site` asume `npm run check`/`npm test`), **WDK-010** (`design-critique` es Astro-only y entregó "crítica parcial" sin capturas; debe ser FALLA), **WDK-011** (gate formal "HTML sin JS" en `audit-site`/`check-seo`; hoy el agente lo improvisa con `curl`).
+- Solo docs; `./init.sh` no ejecutado (no se tocó plantilla ni scripts).
+
+**Pendiente**
+- Prioridad sugerida: WDK-011 → WDK-010 → WDK-009 (los dos primeros son los que separan "auditoría" de "lectura de código"). Añadir `.gitattributes` (`* text=auto eol=lf`) a la plantilla: en Windows un clon limpio mostró 47 archivos "modificados" por CRLF.
+- Sigue: WDK-003/004/005/008 y los pendientes de sesión 5.
+
 ## Sesión 5 — 2026-10-13/14 (pasada B real: 911locksmithassistance.com, v2.1.1)
 **Hecho**
 - Rebuild Astro del sitio real (SPA React/Vite → Astro) en repo del usuario, PR #1 mergeado, producción en Vercel: home 200, robots 200, sitemap-index 200, `/loquesea/` 404 real, canonical OK.
